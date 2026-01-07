@@ -1,0 +1,19 @@
+{
+  "name": "@my-scope/typescript-config",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.js",
+  "files": [
+    "base.json",
+    "next.json",
+    "react-library.json"
+  ],
+  "scripts": {
+    "build": "echo 'No build needed'",
+    "dev": "echo 'No dev needed'",
+    "start": "echo 'No start needed'",
+    "lint": "echo 'No lint needed'",
+    "typecheck": "echo 'No typecheck needed'",
+    "clean": "echo 'No clean needed'"
+  }
+}

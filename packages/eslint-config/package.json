@@ -1,0 +1,21 @@
+{
+  "name": "@my-scope/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "main": "base.js",
+  "files": [
+    "base.js",
+    "next.js"
+  ],
+  "scripts": {
+    "build": "echo 'No build needed'",
+    "dev": "echo 'No dev needed'",
+    "start": "echo 'No start needed'",
+    "lint": "echo 'No lint needed'",
+    "typecheck": "echo 'No typecheck needed'",
+    "clean": "echo 'No clean needed'"
+  },
+  "peerDependencies": {
+    "eslint": "^8.0.0 || ^9.0.0"
+  }
+}
