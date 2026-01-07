@@ -1,22 +1,15 @@
 import { Schema, model, models } from "mongoose";
-
-export interface User {
-  _id: string;
-  email: string;
-  displayName: string;
-  photoURL?: string;
-  createdAt: Date;
-}
+import type { User } from "@my-scope/shared/types";
 
 const userSchema = new Schema<User>(
   {
     _id: { type: String, required: true },
     email: { type: String, required: true, lowercase: true, trim: true },
-    displayName: { type: String, required: true, trim: true },
-    photoURL: { type: String },
+    display_name: { type: String, required: true, trim: true },
+    photo_url: { type: String },
   },
   {
-    timestamps: { createdAt: true, updatedAt: false },
+    timestamps: { createdAt: "created_at", updatedAt: false },
     versionKey: false,
   }
 );
