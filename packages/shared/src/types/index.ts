@@ -10,3 +10,6 @@ export type ReadyCheckResponse = {
   service: string;
   timestamp: string;
 };
+
+// Re-export model types
+export * from "./models";

@@ -1,7 +1,10 @@
 {
   "extends": "../typescript-config/base.json",
   "compilerOptions": {
-    "baseUrl": "."
+    "baseUrl": ".",
+    "paths": {
+      "@my-scope/shared/*": ["../shared/src/*"]
+    }
   },
   "include": ["src/**/*.ts"]
 }

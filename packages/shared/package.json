@@ -15,6 +15,11 @@
       "types": "./.dist/src/types/index.d.ts",
       "require": "./.dist/src/types/index.js",
       "import": "./.dist/src/types/index.mjs"
+    },
+    "./types/models": {
+      "types": "./.dist/src/types/models/index.d.ts",
+      "require": "./.dist/src/types/models/index.js",
+      "import": "./.dist/src/types/models/index.mjs"
     }
   },
   "scripts": {
@@ -25,10 +30,14 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf .dist .turbo"
   },
+  "peerDependencies": {
+    "mongoose": "^8.0.0"
+  },
   "devDependencies": {
     "@my-scope/eslint-config": "*",
     "@my-scope/typescript-config": "*",
     "eslint": "^8.57.0",
+    "mongoose": "^8.5.2",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0"
   }
