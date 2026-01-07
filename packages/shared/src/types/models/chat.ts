@@ -1,13 +1,15 @@
-import { Types } from "mongoose";
+import type { Model } from "mongoose";
+import type { TDocument, TObjectId } from "./common";
 
 // Chat types
-export type Chat = {
-  _id: Types.ObjectId;
-  owner_id: string;
+export type TChat<TChatUser = string> = {
+  user: TChatUser;
   title: string;
   message_count: number;
-  created_at: Date;
-  updated_at: Date;
   last_message_at: Date;
   archived_at?: Date;
 };
+
+export type TChatDoc<TId = TObjectId, TChatUser = string> = TDocument<TId> & TChat<TChatUser>;
+
+export type TChatModel<TChatUser = string> = Model<TChat<TChatUser>>;

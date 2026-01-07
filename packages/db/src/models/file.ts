@@ -1,20 +1,19 @@
-import { Schema, model, models } from "mongoose";
-import type { File, FileStatus } from "@my-scope/shared/types";
+import { Schema, model } from "mongoose";
+import type { TFile, FileStatus } from "@my-scope/shared/types";
 import { fileStatusValues } from "@my-scope/shared/types";
 
-const fileSchema = new Schema<File>(
+const file_schema = new Schema<TFile>(
   {
-    owner_id: { type: String, required: true },
+    user: { type: String, required: true },
     file_name: { type: String, required: true },
     storage_path: { type: String, required: true },
     page_count: { type: Number, required: true },
     status: { type: String, enum: fileStatusValues, required: true },
   },
-  {
-    timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
-  }
+  { timestamps: true }
 );
 
-fileSchema.index({ owner_id: 1, created_at: -1 });
+// Indexes for Files
+file_schema.index({ user: 1, createdAt: -1 }); // Primary filter - user's files sorted by creation
 
-export const FileModel = models.File || model<File>("File", fileSchema);
+export const file_model = model<TFile>("File", file_schema, "files");

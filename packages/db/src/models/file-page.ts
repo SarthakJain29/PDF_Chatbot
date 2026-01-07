@@ -1,24 +1,27 @@
-import { Schema, model, models } from "mongoose";
-import type { FilePage } from "@my-scope/shared/types";
+import { Schema, model } from "mongoose";
+import type { TFilePage } from "@my-scope/shared/types";
 
-const filePageSchema = new Schema<FilePage>(
+const file_page_schema = new Schema<TFilePage>(
   {
-    owner_id: { type: String, required: true },
-    file_id: { type: Schema.Types.ObjectId, required: true, ref: "File" },
+    user: { type: String, required: true },
+    file: {
+      type: Schema.Types.ObjectId,
+      ref: "File",
+      required: true,
+    },
     page_number: { type: Number, required: true },
     chunk_index: { type: Number, required: true },
     text: { type: String, required: true },
     embedding: { type: [Number], required: true },
   },
-  {
-    timestamps: { createdAt: "created_at", updatedAt: false },
-  }
+  { timestamps: true }
 );
 
-filePageSchema.index({ file_id: 1 });
-filePageSchema.index({ owner_id: 1 });
+// Indexes for FilePages
+file_page_schema.index({ file: 1 }); // Primary filter - pages for a file
+file_page_schema.index({ user: 1 }); // User-filtered queries
 
-export const filePageVectorIndex = {
+export const file_page_vector_index = {
   name: "file_pages_embedding",
   definition: {
     fields: [
@@ -33,4 +36,4 @@ export const filePageVectorIndex = {
 };
 
 // Atlas vector index should be created separately for `embedding`.
-export const FilePageModel = models.FilePage || model<FilePage>("FilePage", filePageSchema);
+export const file_page_model = model<TFilePage>("FilePage", file_page_schema, "file_pages");

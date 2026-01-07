@@ -1,11 +1,15 @@
-import { Schema, model, models } from "mongoose";
-import type { Message, MessageRole, MessageStatus } from "@my-scope/shared/types";
+import { Schema, model } from "mongoose";
+import type { TMessage, MessageRole, MessageStatus } from "@my-scope/shared/types";
 import { messageRoleValues, messageStatusValues } from "@my-scope/shared/types";
 
-const messageSchema = new Schema<Message>(
+const message_schema = new Schema<TMessage>(
   {
-    chat_id: { type: Schema.Types.ObjectId, required: true, ref: "Chat" },
-    owner_id: { type: String, required: true },
+    chat: {
+      type: Schema.Types.ObjectId,
+      ref: "Chat",
+      required: true,
+    },
+    user: { type: String, required: true },
     role: { type: String, enum: messageRoleValues, required: true },
     content: { type: Schema.Types.Mixed, required: true },
     status: { type: String, enum: messageStatusValues, required: true },
@@ -13,11 +17,10 @@ const messageSchema = new Schema<Message>(
     retry_attempts: { type: Number, required: true, default: 0 },
     error: { type: String },
   },
-  {
-    timestamps: { createdAt: "created_at", updatedAt: false },
-  }
+  { timestamps: true }
 );
 
-messageSchema.index({ chat_id: 1, created_at: 1 });
+// Indexes for Messages
+message_schema.index({ chat: 1, createdAt: 1 }); // Primary filter - messages for a chat sorted by creation
 
-export const MessageModel = models.Message || model<Message>("Message", messageSchema);
+export const message_model = model<TMessage>("Message", message_schema, "messages");

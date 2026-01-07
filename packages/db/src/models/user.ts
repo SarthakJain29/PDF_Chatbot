@@ -1,16 +1,14 @@
-import { Schema, model, models } from "mongoose";
-import type { User } from "@my-scope/shared/types";
+import { Schema, model } from "mongoose";
+import type { TUser } from "@my-scope/shared/types";
 
-const userSchema = new Schema<User>(
+const user_schema = new Schema<TUser>(
   {
     _id: { type: String, required: true },
     email: { type: String, required: true, lowercase: true, trim: true },
     display_name: { type: String, required: true, trim: true },
     photo_url: { type: String },
   },
-  {
-    timestamps: { createdAt: "created_at", updatedAt: false },
-  }
+  { timestamps: true }
 );
 
-export const UserModel = models.User || model<User>("User", userSchema);
+export const user_model = model<TUser>("User", user_schema, "users");

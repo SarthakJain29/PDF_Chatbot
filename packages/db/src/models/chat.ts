@@ -1,19 +1,18 @@
-import { Schema, model, models } from "mongoose";
-import type { Chat } from "@my-scope/shared/types";
+import { Schema, model } from "mongoose";
+import type { TChat } from "@my-scope/shared/types";
 
-const chatSchema = new Schema<Chat>(
+const chat_schema = new Schema<TChat>(
   {
-    owner_id: { type: String, required: true },
+    user: { type: String, required: true },
     title: { type: String, required: true },
     message_count: { type: Number, required: true, default: 0 },
     last_message_at: { type: Date, required: true, default: Date.now },
     archived_at: { type: Date },
   },
-  {
-    timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
-  }
+  { timestamps: true }
 );
 
-chatSchema.index({ owner_id: 1, updated_at: -1 });
+// Indexes for Chats
+chat_schema.index({ user: 1, updatedAt: -1 }); // Primary filter - user's chats sorted by update time
 
-export const ChatModel = models.Chat || model<Chat>("Chat", chatSchema);
+export const chat_model = model<TChat>("Chat", chat_schema, "chats");
