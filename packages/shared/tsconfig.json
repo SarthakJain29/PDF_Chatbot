@@ -5,5 +5,5 @@
     "incremental": false,
     "noEmit": false
   },
-  "include": ["constants/**/*.ts", "types/**/*.ts"]
+  "include": ["src/**/*.ts", "index.ts"]
 }

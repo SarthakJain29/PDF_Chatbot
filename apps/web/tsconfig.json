@@ -4,7 +4,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@my-scope/shared/*": ["../../packages/shared/*"]
+      "@my-scope/shared/*": ["../../packages/shared/src/*"]
     },
     "jsx": "preserve"
   },

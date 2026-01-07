@@ -69,7 +69,7 @@ export default function Home() {
             <div className="flex flex-wrap gap-3 pt-2">
               <Button>Run checks</Button>
               <Button asChild variant="outline">
-                <a href="http://localhost:3000/health">Open /health</a>
+                <a href="http://localhost:5000/health">Open /health</a>
               </Button>
             </div>
           </div>
