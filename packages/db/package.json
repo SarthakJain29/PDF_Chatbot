@@ -1,0 +1,35 @@
+{
+  "name": "@my-scope/db",
+  "version": "0.0.0",
+  "private": true,
+  "main": ".dist/index.js",
+  "types": ".dist/index.d.ts",
+  "files": [
+    ".dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./.dist/index.d.ts",
+      "require": "./.dist/index.js",
+      "import": "./.dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --out-dir .dist --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --out-dir .dist --watch",
+    "start": "echo 'No start needed'",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf .dist .turbo"
+  },
+  "dependencies": {
+    "mongoose": "^8.5.2"
+  },
+  "devDependencies": {
+    "@my-scope/eslint-config": "*",
+    "@my-scope/typescript-config": "*",
+    "eslint": "^8.57.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0"
+  }
+}

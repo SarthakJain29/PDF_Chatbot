@@ -24,5 +24,8 @@
     "dotenv-cli": "^8.0.0",
     "husky": "^9.0.11",
     "lint-staged": "^15.2.2"
+  },
+  "dependencies": {
+    "mongoose": "^9.1.2"
   }
 }
