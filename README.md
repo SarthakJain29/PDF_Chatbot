@@ -5,8 +5,8 @@ This is a Turborepo monorepo using Bun workspaces.
 ## Structure
 
 - `apps/*` - Deployable applications
-  - `apps/web` - Next.js web application (port 3001)
-  - `apps/api` - Express API application (port 3000)
+  - `apps/web` - Next.js web application (port 3000)
+  - `apps/api` - Express API application (port 5000)
 - `packages/*` - Shared libraries and configurations
   - `packages/typescript-config` - Shared TypeScript configurations
   - `packages/eslint-config` - Shared ESLint configurations
@@ -27,8 +27,8 @@ bun run dev
 ```
 
 This will start:
-- `apps/web` on http://localhost:3001
-- `apps/api` on http://localhost:3000
+- `apps/web` on http://localhost:3000
+- `apps/api` on http://localhost:5000
 
 Run a specific app:
 
@@ -80,12 +80,12 @@ bun run <script>  # Runs via turbo
 ## Apps
 
 ### apps/web
-Next.js web application with App Router. Default port: 3001
+Next.js web application with App Router. Default port: 3000
 
 ### apps/api
-Express API application with health-style routes. Default port: 3000
-- Health check endpoint: http://localhost:3000/health
-- Ready check endpoint: http://localhost:3000/ready
+Express API application with health-style routes. Default port: 5000
+- Health check endpoint: http://localhost:5000/health
+- Ready check endpoint: http://localhost:5000/ready
 
 ## Docker (apps/api)
 
@@ -98,5 +98,5 @@ docker build -f apps/api/Dockerfile -t business-os-api .
 Run the container:
 
 ```bash
-docker run -p 3000:3000 business-os-api
+docker run -p 5000:5000 business-os-api
 ```

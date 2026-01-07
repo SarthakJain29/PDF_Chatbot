@@ -1,13 +1,13 @@
 import express from "express";
 // Use relative import for now to ensure it works
-import { APP_NAME } from "../../../packages/shared/.dist/constants/index.js";
+import { APP_NAME } from "../../../packages/shared/.dist/src/constants/index.js";
 import type {
   HealthCheckResponse,
   ReadyCheckResponse,
-} from "../../../packages/shared/.dist/types/index.js";
+} from "../../../packages/shared/.dist/src/types/index.js";
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 5000;
 const SERVICE_NAME = `${APP_NAME} API`;
 
 app.use(express.json());
