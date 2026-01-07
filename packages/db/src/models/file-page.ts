@@ -12,7 +12,6 @@ const filePageSchema = new Schema<FilePage>(
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: false },
-    versionKey: false,
   }
 );
 

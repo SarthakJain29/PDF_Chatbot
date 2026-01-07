@@ -5,7 +5,6 @@ export type Chat = {
   _id: Types.ObjectId;
   owner_id: string;
   title: string;
-  file_ids: Types.ObjectId[];
   message_count: number;
   created_at: Date;
   updated_at: Date;

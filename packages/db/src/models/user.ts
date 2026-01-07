@@ -10,7 +10,6 @@ const userSchema = new Schema<User>(
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: false },
-    versionKey: false,
   }
 );
 

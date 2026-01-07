@@ -4,7 +4,9 @@
     "baseUrl": ".",
     "paths": {
       "@my-scope/shared/*": ["../shared/src/*"]
-    }
+    },
+    "incremental": false,
+    "noEmit": false
   },
   "include": ["src/**/*.ts"]
 }

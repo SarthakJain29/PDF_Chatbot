@@ -15,7 +15,6 @@ const messageSchema = new Schema<Message>(
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: false },
-    versionKey: false,
   }
 );
 
