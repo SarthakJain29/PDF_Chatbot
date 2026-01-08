@@ -20,7 +20,8 @@
     "start": "echo 'No start needed'",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf .dist .turbo"
+    "clean": "rm -rf .dist .turbo",
+    "db:test": "dotenv -e ../../.env -- bun run scripts/test-connection.ts"
   },
   "dependencies": {
     "@my-scope/shared": "*",
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@my-scope/eslint-config": "*",
     "@my-scope/typescript-config": "*",
+    "@types/node": "^20.14.0",
     "eslint": "^8.57.0",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0"

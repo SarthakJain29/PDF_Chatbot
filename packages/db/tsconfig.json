@@ -6,7 +6,9 @@
       "@my-scope/shared/*": ["../shared/src/*"]
     },
     "incremental": false,
-    "noEmit": false
+    "noEmit": false,
+    "types": ["node"],
+    "lib": ["ES2022"]
   },
   "include": ["src/**/*.ts"]
 }
