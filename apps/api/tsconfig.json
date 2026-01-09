@@ -1,15 +1,19 @@
 {
   "extends": "../../packages/typescript-config/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
+    "baseUrl": "./",
     "outDir": ".dist",
-    "rootDir": "src",
-    "module": "CommonJS",
+    "rootDir": "./",
+    "module": "Node16",
     "target": "ES2020",
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "typeRoots": ["./src/types", "./node_modules/@types", "../../node_modules/@types"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/types/express.d.ts"],
   "exclude": ["node_modules", ".dist", ".turbo"]
 }

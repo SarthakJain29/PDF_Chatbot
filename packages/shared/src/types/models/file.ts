@@ -8,8 +8,6 @@ export type FileStatus = (typeof fileStatusValues)[number];
 export type TFile<TFileUser = string> = {
   user: TFileUser;
   file_name: string;
-  storage_path: string;
-  page_count: number;
   status: FileStatus;
 };
 

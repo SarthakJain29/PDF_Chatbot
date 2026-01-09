@@ -25,7 +25,8 @@
   },
   "dependencies": {
     "@my-scope/shared": "*",
-    "mongoose": "^8.5.2"
+    "mongoose": "^8.5.2",
+    "bson": "^6.10.4"
   },
   "devDependencies": {
     "@my-scope/eslint-config": "*",

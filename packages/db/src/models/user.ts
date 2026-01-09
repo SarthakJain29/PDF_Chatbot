@@ -1,7 +1,7 @@
 import { Schema, model } from "mongoose";
 import type { TUser } from "@my-scope/shared/types";
 
-const user_schema = new Schema<TUser>(
+const user_schema = new Schema(
   {
     _id: { type: String, required: true },
     email: { type: String, required: true, lowercase: true, trim: true },

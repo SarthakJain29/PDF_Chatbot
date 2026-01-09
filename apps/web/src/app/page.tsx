@@ -1,136 +1,230 @@
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { APP_NAME } from "@my-scope/shared/constants";
-import type {
-  HealthCheckResponse,
-  ReadyCheckResponse,
-} from "@my-scope/shared/types";
+'use client'
 
-const healthSample: HealthCheckResponse = {
-  status: "ok",
-  service: `${APP_NAME} API`,
-  timestamp: new Date().toISOString(),
-  version: "1.0.0",
-};
+import * as React from 'react'
+import { FileText, MessageSquare, Upload } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
-const readySample: ReadyCheckResponse = {
-  status: "ready",
-  service: `${APP_NAME} API`,
-  timestamp: new Date().toISOString(),
-};
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { upload_files, get_chats, get_files, create_chat } from '@/lib/api'
 
-const endpoints = [
-  {
-    title: "Health Check",
-    path: "/health",
-    status: healthSample.status,
-    description: "Basic uptime and version sanity check.",
-    payload: healthSample,
-  },
-  {
-    title: "Ready Check",
-    path: "/ready",
-    status: readySample.status,
-    description: "Dependency readiness before traffic hits.",
-    payload: readySample,
-  },
-];
+const status_colors: Record<string, string> = {
+  uploaded: 'bg-slate-100 text-slate-700',
+  processing: 'bg-amber-100 text-amber-700',
+  ready: 'bg-emerald-100 text-emerald-700',
+  failed: 'bg-rose-100 text-rose-700'
+}
+
+type TChat = {  //remove types from here
+  _id: string
+  title: string
+  message_count: number
+  updatedAt?: string
+}
+
+type TFileDoc = {
+  _id: string
+  file_name: string
+  status: string
+  createdAt?: string
+}
 
 export default function Home() {
-  return (
-    <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_hsl(var(--accent))_0%,_transparent_45%)]">
-      <div className="container relative py-16">
-        <div className="pointer-events-none absolute -right-20 top-10 h-64 w-64 rounded-full bg-[radial-gradient(circle,_rgba(255,184,107,0.6)_0%,_rgba(255,184,107,0)_70%)] blur-3xl animate-float-slow" />
-        <div className="pointer-events-none absolute left-0 top-40 h-52 w-52 rounded-full bg-[radial-gradient(circle,_rgba(99,179,237,0.5)_0%,_rgba(99,179,237,0)_70%)] blur-3xl animate-float-slow" />
+  const router = useRouter()
+  const file_input_ref = React.useRef<HTMLInputElement | null>(null)
+  const [chats, setChats] = React.useState<TChat[]>([])
+  const [files, setFiles] = React.useState<TFileDoc[]>([])
+  const [is_loading, setIsLoading] = React.useState(true)
+  const [is_uploading, setIsUploading] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
 
-        <section className="relative z-10 grid gap-10">
-          <div className="max-w-2xl space-y-4 animate-fade-up">
-            <Badge variant="secondary" className="w-fit">
-              Shared constants + types
-            </Badge>
-            <h1 className="text-4xl font-semibold tracking-tight text-shadow-soft md:text-5xl">
-              {APP_NAME} Health Console
-            </h1>
-            <p className="text-sm text-muted-foreground font-mono">
-              Constant from shared package: <span className="font-bold text-foreground">"{APP_NAME}"</span>
-            </p>
-            <p className="text-lg text-muted-foreground">
-              Frontend status dashboard built with shadcn UI components. Express
-              serves the backend routes, and shared packages keep the contract
-              consistent across the stack.
-            </p>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Button>Run checks</Button>
-              <Button asChild variant="outline">
-                <a href="http://localhost:5000/health">Open /health</a>
-              </Button>
-            </div>
-          </div>
+  const load_data = React.useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const [chats_res, files_res] = await Promise.all([get_chats(), get_files()])
+      setChats(chats_res.data)
+      setFiles(files_res.data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
-          <div className="grid gap-6 md:grid-cols-2 animate-fade-in">
-            {endpoints.map((endpoint) => {
-              const isHealthy =
-                endpoint.status === "ok" || endpoint.status === "ready";
+  React.useEffect(() => {
+    load_data()
+  }, [load_data])
 
-              return (
-                <Card
-                  key={endpoint.path}
-                  className="backdrop-blur-sm bg-white/80 shadow-soft"
-                >
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle>{endpoint.title}</CardTitle>
-                      <Badge
-                        variant="outline"
-                        className={
-                          isHealthy
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                            : "border-amber-200 bg-amber-50 text-amber-800"
-                        }
-                      >
-                        {endpoint.status.replace("_", " ")}
-                      </Badge>
-                    </div>
-                    <CardDescription>{endpoint.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>Endpoint</span>
-                      <span className="font-medium text-foreground">
-                        {endpoint.path}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>Service</span>
-                      <span className="font-medium text-foreground">
-                        {endpoint.payload.service}
-                      </span>
-                    </div>
-                    {"version" in endpoint.payload && (
-                      <div className="flex items-center justify-between text-muted-foreground">
-                        <span>Version</span>
-                        <span className="font-medium text-foreground">
-                          {endpoint.payload.version}
-                        </span>
-                      </div>
-                    )}
-                    <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                      {endpoint.payload.timestamp}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
+  const handle_upload_click = () => {
+    file_input_ref.current?.click()
+  }
+
+  const handle_upload_change = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const selected_files = Array.from(event.target.files || [])
+
+    if (!selected_files.length) {
+      return
+    }
+
+    try {
+      setError(null)
+      setIsUploading(true)
+
+      await upload_files(selected_files)
+      await load_data()
+
+      const chat_title =
+        selected_files.length === 1
+          ? `Chat: ${selected_files[0].name}`
+          : `Chat (${selected_files.length} files)`
+
+      const chat_res = await create_chat(chat_title)
+      router.push(`/chat/${chat_res.data.chat_id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setIsUploading(false)
+      if (file_input_ref.current) {
+        file_input_ref.current.value = ''
+      }
+    }
+  }
+
+  const handle_new_chat = async () => {
+    try {
+      const chat_res = await create_chat('New Chat')
+      router.push(`/chat/${chat_res.data.chat_id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create chat')
+    }
+  }
+
+  if (is_loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600">
+        Loading...
       </div>
-    </main>
-  );
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 px-6 py-10 text-slate-900">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">RAG PDF Chatbot</h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Upload PDFs, ingest them, and chat with your content.
+            </p>
+          </div>
+          <Button onClick={handle_new_chat} className="gap-2">
+            <MessageSquare className="h-4 w-4" />
+            New Chat
+          </Button>
+        </header>
+
+        {error ? (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+          <Card className="p-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Recent Chats</h2>
+              <Badge variant="secondary">{chats.length}</Badge>
+            </div>
+            <div className="mt-4 space-y-3">
+              {chats.length === 0 ? (
+                <p className="text-sm text-slate-500">No chats yet. Start one.</p>
+              ) : (
+                chats.map((chat) => (
+                  <button
+                    key={chat._id}
+                    type="button"
+                    className="flex w-full items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-white"
+                    onClick={() => router.push(`/chat/${chat._id}`)}
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {chat.title}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {chat.message_count} messages
+                      </p>
+                    </div>
+                    <MessageSquare className="h-4 w-4 text-slate-400" />
+                  </button>
+                ))
+              )}
+            </div>
+          </Card>
+
+          <div className="space-y-6">
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold">Upload PDFs</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                PDFs are stored locally and embedded page by page.
+              </p>
+              <input
+                ref={file_input_ref}
+                type="file"
+                multiple
+                accept="application/pdf"
+                className="hidden"
+                onChange={handle_upload_change}
+              />
+              <Button
+                onClick={handle_upload_click}
+                className="mt-4 gap-2"
+                disabled={is_uploading}
+              >
+                <Upload className="h-4 w-4" />
+                {is_uploading ? 'Uploading...' : 'Select PDFs'}
+              </Button>
+            </Card>
+
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Ingested Files</h2>
+                <Badge variant="secondary">{files.length}</Badge>
+              </div>
+              <div className="mt-4 space-y-3">
+                {files.length === 0 ? (
+                  <p className="text-sm text-slate-500">No files uploaded yet.</p>
+                ) : (
+                  files.map((file) => (
+                    <div
+                      key={file._id}
+                      className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-4 w-4 text-slate-400" />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">
+                            {file.file_name}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs font-medium ${
+                          status_colors[file.status] || 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {file.status}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }

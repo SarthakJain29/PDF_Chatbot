@@ -26,6 +26,9 @@
     "lint-staged": "^15.2.2"
   },
   "dependencies": {
-    "mongoose": "^9.1.2"
+    "express-fileupload": "^1.5.2"
+  },
+  "overrides": {
+    "bson": "^6.10.4"
   }
 }

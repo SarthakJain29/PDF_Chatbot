@@ -1,49 +1,57 @@
-import express from "express";
-// Use relative import for now to ensure it works
-import { APP_NAME } from "../../../packages/shared/.dist/src/constants/index.js";
-import type {
-  HealthCheckResponse,
-  ReadyCheckResponse,
-} from "../../../packages/shared/.dist/src/types/index.js";
+import colors from 'colors'
 
-const app = express();
-const PORT = Number(process.env.PORT) || 5000;
-const SERVICE_NAME = `${APP_NAME} API`;
+import { connect_db, disconnect_db } from '@my-scope/db'
 
-app.use(express.json());
+import { env } from '@/constants/env'
 
-// Request logging
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  next();
-});
+import { app } from './app'
 
-app.get("/health", (req, res) => {
-  console.log(`[HEALTH] Request received from ${req.ip}`);
-  const payload: HealthCheckResponse = {
-    status: "ok",
-    service: SERVICE_NAME,
-    timestamp: new Date().toISOString(),
-    version: "1.0.0",
-  };
-  console.log(`[HEALTH] Response:`, JSON.stringify(payload, null, 2));
-  res.json(payload);
-});
+colors.enable()
 
-app.get("/ready", (req, res) => {
-  console.log(`[READY] Request received from ${req.ip}`);
-  const payload: ReadyCheckResponse = {
-    status: "ready",
-    service: SERVICE_NAME,
-    timestamp: new Date().toISOString(),
-  };
-  console.log(`[READY] Response:`, JSON.stringify(payload, null, 2));
-  res.json(payload);
-});
+const start_server = async () => {
+  try {
+    const connected = await connect_db()
+    if (!connected) {
+      console.warn('Warning: Database connection failed. Server will start without database.'.yellow)
+    }
 
-app.listen(PORT, () => {
-  console.log(`🚀 ${SERVICE_NAME} running on http://localhost:${PORT}`);
-  console.log(`📡 Health: http://localhost:${PORT}/health`);
-  console.log(`📡 Ready: http://localhost:${PORT}/ready`);
-  console.log(`📦 APP_NAME constant: "${APP_NAME}"`);
-});
+    app.listen(env.api_port, () => {
+      console.log(`Server is live on: http://localhost:${env.api_port}`.magenta)
+      if (!connected) {
+        console.warn('Note: Some features may not work without database connection.'.yellow)
+      }
+    })
+  } catch (error) {
+    console.error('Failed to start server...\n'.red, error)
+    process.exit(1)
+  }
+}
+
+const graceful_shutdown = async () => {
+  try {
+    console.log('Shutting down gracefully...\n'.yellow)
+    await disconnect_db()
+    process.exit(0)
+  } catch (error) {
+    console.error('Error during shutdown...\n'.red, error)
+    process.exit(1)
+  }
+}
+
+const handle_fatal_error = (error: Error, type: 'rejection' | 'exception') => {
+  console.error(`Shutting down due to unhandled ${type}...\n`.red, error)
+  graceful_shutdown()
+}
+
+start_server()
+
+process.on('SIGTERM', graceful_shutdown)
+process.on('SIGINT', graceful_shutdown)
+
+process.on('unhandledRejection', (error: Error) => {
+  handle_fatal_error(error, 'rejection')
+})
+
+process.on('uncaughtException', (error: Error) => {
+  handle_fatal_error(error, 'exception')
+})
