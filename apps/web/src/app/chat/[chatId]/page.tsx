@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { get_chat_messages, stream_chat_message } from '@/lib/api'
 
 const bubble_styles = {
@@ -14,25 +13,17 @@ const bubble_styles = {
   assistant: 'bg-white border border-slate-200 text-slate-900'
 }
 
-type TSource = {
-  file_id: string
-  file_name: string
-  page_number: number
-  chunk_index: number
-}
-
 type TChatMessage = {
   id: string
   role: 'user' | 'assistant'
   content: string
-  sources?: TSource[]
   streaming?: boolean
 }
 
 type TMessageDoc = {
   _id: string
   role: 'user' | 'assistant'
-  content: string | { text: string; sources?: TSource[] }
+  content: string | { text: string }
 }
 
 type TChatPageProps = {
@@ -62,8 +53,7 @@ export default function ChatPage({ params }: TChatPageProps) {
         return {
           id: message._id,
           role: message.role,
-          content: message.content.text,
-          sources: message.content.sources || []
+          content: message.content.text
         }
       })
 
@@ -100,8 +90,7 @@ export default function ChatPage({ params }: TChatPageProps) {
       id: assistant_message_id,
       role: 'assistant',
       content: '',
-      streaming: true,
-      sources: []
+      streaming: true
     }
 
     setMessages((prev) => [...prev, user_message, assistant_message])
@@ -117,15 +106,7 @@ export default function ChatPage({ params }: TChatPageProps) {
           )
         )
       },
-      on_sources: (sources) => {
-        setMessages((prev) =>
-          prev.map((message) =>
-            message.id === assistant_message_id
-              ? { ...message, sources }
-              : message
-          )
-        )
-      },
+      on_sources: () => {},
       on_done: () => {
         setMessages((prev) =>
           prev.map((message) =>
@@ -185,18 +166,6 @@ export default function ChatPage({ params }: TChatPageProps) {
                 }`}
               >
                 <p>{message.content || (message.streaming ? '...' : '')}</p>
-                {message.role === 'assistant' && message.sources?.length ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {message.sources.map((source) => (
-                      <Badge
-                        key={`${source.file_id}-${source.page_number}-${source.chunk_index}`}
-                        variant="secondary"
-                      >
-                        {source.file_name} · p.{source.page_number}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
               </div>
             ))
           )}

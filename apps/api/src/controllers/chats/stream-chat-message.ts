@@ -4,7 +4,7 @@ import { streamText } from 'ai'
 import { openai } from '@ai-sdk/openai'
 
 import { mg } from '@my-scope/db'
-import type { TMessageContent, TMessageSource } from '@my-scope/shared/types'
+import type { TMessageContent } from '@my-scope/shared/types'
 
 import { OPENAI_CHAT_MODEL } from '@/constants/ai'
 import { generate_embedding } from '@/service/embeddings'
@@ -25,6 +25,12 @@ export const stream_chat_message = async (req: Request, res: Response) => {
     throw_error('Chat not found', 404)
   }
 
+  const recent_messages = await mg.message
+    .find({ chat: _id, user: req.user._id })
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .lean()
+
   await mg.message.create({
     chat: _id,
     user: req.user._id,
@@ -43,16 +49,9 @@ export const stream_chat_message = async (req: Request, res: Response) => {
   try {
     const query_embedding = await generate_embedding(content)
     const chunks = await find_similar_chunks({
-      user: req.user._id,
-      embedding: query_embedding
+      embedding: query_embedding,
+      query: content
     })
-
-    const sources: TMessageSource<string>[] = chunks.map((chunk) => ({
-      file_id: chunk.file_id.toString(),
-      file_name: chunk.file_name,
-      page_number: chunk.page_number,
-      chunk_index: chunk.chunk_index
-    }))
 
     const context = chunks
       .map(
@@ -62,14 +61,47 @@ export const stream_chat_message = async (req: Request, res: Response) => {
       .join('\n\n')
 
     const system_prompt =
-      'You are a helpful assistant that answers questions using the provided PDF context. ' +
-      'If the answer is not in the context, say you do not know. ' +
-      'Cite sources in brackets like [file:page].'
+      `You are a PDF chatbot.
+Answer questions only using the provided document context and conversation history.
+Do not use outside knowledge or make assumptions beyond the document content.
+If the user asks to see the retrieved chunks or raw context, return the exact chunk text with citations.
 
-    const user_prompt = `Context:\n${context || 'No relevant context found.'}\n\nQuestion:\n${content}`
+Be clear, concise, and factual.`
+
+    const history = recent_messages
+      .slice()
+      .reverse()
+      .map((message) => {
+        const role_label =
+          message.role === 'assistant'
+            ? 'Assistant'
+            : message.role === 'user'
+              ? 'User'
+              : 'System'
+        const text =
+          typeof message.content === 'string'
+            ? message.content
+            : message.content?.text || ''
+
+        if (!text) {
+          return ''
+        }
+
+        return `${role_label}: ${text}`
+      })
+      .filter(Boolean)
+      .join('\n')
+
+    const user_prompt = [
+      `Context:\n${context || 'No relevant context found.'}`,
+      history ? `Conversation so far:\n${history}` : null,
+      `Question:\n${content}`
+    ]
+      .filter(Boolean)
+      .join('\n\n')
 
     const result = await streamText({
-      model: chat_model,
+      model: chat_model as any,
       system: system_prompt,
       prompt: user_prompt,
       abortSignal: abort_controller.signal
@@ -85,10 +117,7 @@ export const stream_chat_message = async (req: Request, res: Response) => {
       })
     }
 
-    const assistant_content: TMessageContent<string> = {
-      text: assistant_text,
-      sources
-    }
+    const assistant_content: TMessageContent<string> = assistant_text
 
     await mg.message.create({
       chat: _id,
@@ -107,11 +136,6 @@ export const stream_chat_message = async (req: Request, res: Response) => {
         $set: { last_message_at: new Date() }
       }
     )
-
-    send_sse_event(res, {
-      event: 'sources',
-      data: { sources }
-    })
 
     send_sse_event(res, {
       event: 'done',

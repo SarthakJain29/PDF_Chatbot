@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { upload_files, get_chats, get_files, create_chat } from '@/lib/api'
+import { upload_files, get_chats, create_chat } from '@/lib/api'
 
 const status_colors: Record<string, string> = {
   uploaded: 'bg-slate-100 text-slate-700',
@@ -30,6 +30,13 @@ type TFileDoc = {
   createdAt?: string
 }
 
+type TUploadResult = {
+  file_id?: string
+  file_name: string
+  status: string
+  error?: string
+}
+
 export default function Home() {
   const router = useRouter()
   const file_input_ref = React.useRef<HTMLInputElement | null>(null)
@@ -42,9 +49,8 @@ export default function Home() {
   const load_data = React.useCallback(async () => {
     try {
       setIsLoading(true)
-      const [chats_res, files_res] = await Promise.all([get_chats(), get_files()])
+      const chats_res = await get_chats()
       setChats(chats_res.data)
-      setFiles(files_res.data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data')
     } finally {
@@ -73,8 +79,21 @@ export default function Home() {
       setError(null)
       setIsUploading(true)
 
-      await upload_files(selected_files)
-      await load_data()
+      const upload_res = await upload_files(selected_files)
+      const uploaded_files = Array.isArray(upload_res.data)
+        ? (upload_res.data as TUploadResult[])
+        : []
+
+      if (uploaded_files.length) {
+        setFiles((prev) => [
+          ...uploaded_files.map((file, index) => ({
+            _id: file.file_id || `${file.file_name}-${Date.now()}-${index}`,
+            file_name: file.file_name,
+            status: file.status
+          })),
+          ...prev
+        ])
+      }
 
       const chat_title =
         selected_files.length === 1

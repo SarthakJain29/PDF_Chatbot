@@ -69,7 +69,6 @@ export const upload_files: RequestHandler = async (req, res) => {
 
   for (const file of files) {
     let created_file_id: string | undefined
-    let stage = 'init'
 
     try {
       console.info('[upload_files] Processing file', {
@@ -79,7 +78,6 @@ export const upload_files: RequestHandler = async (req, res) => {
       })
 
       // Create metadata entry first so UI can track status.
-      stage = 'create_file_doc'
       const file_doc = await mg.file.create({
         user: req.user._id,
         file_name: file.name,
@@ -89,7 +87,6 @@ export const upload_files: RequestHandler = async (req, res) => {
       created_file_id = file_doc._id.toString()
 
       // Mark as processing while we extract + embed text.
-      stage = 'mark_processing'
       await mg.file.updateOne(
         { _id: file_doc._id },
         {
@@ -100,7 +97,6 @@ export const upload_files: RequestHandler = async (req, res) => {
       )
 
       // Extract text page-by-page (raw PDF is not stored).
-      stage = 'extract_pdf_pages'
       const pages = await extract_pdf_pages(file.data)
 
       console.info('[upload_files] Extracted PDF pages', {
@@ -109,7 +105,6 @@ export const upload_files: RequestHandler = async (req, res) => {
       })
 
       // Chunk each page with deterministic chunk_index (token-based).
-      stage = 'chunk_pages'
       const chunks = pages.flatMap((page_text, page_index) => {
         const page_chunks = chunk_text(page_text, {
           chunk_size: CHUNK_SIZE,
@@ -129,7 +124,6 @@ export const upload_files: RequestHandler = async (req, res) => {
       })
 
       // Embed and store chunks in batches for vector search.
-      stage = 'embed_chunks'
       for (let i = 0; i < chunks.length; i += EMBEDDING_BATCH_SIZE) {
         const batch = chunks.slice(i, i + EMBEDDING_BATCH_SIZE)
         const embeddings = await generate_embeddings(batch.map((chunk) => chunk.text))
@@ -172,7 +166,6 @@ export const upload_files: RequestHandler = async (req, res) => {
       }
 
       // Finalize file status once ingestion completes.
-      stage = 'mark_ready'
       await mg.file.updateOne(
         { _id: file_doc._id },
         {
@@ -194,7 +187,6 @@ export const upload_files: RequestHandler = async (req, res) => {
       console.error('[upload_files] Failed to ingest file', {
         user_id: req.user._id,
         file_name: file.name,
-        stage,
         error: error_message
       })
 

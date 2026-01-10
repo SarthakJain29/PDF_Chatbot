@@ -3,6 +3,11 @@ import { z } from 'zod'
 
 import { mg } from '@my-scope/db'
 
+const z_create_chat_body = z.object({
+  title: z.string().trim().min(1).optional()
+})
+
+
 export const create_chat = async (req: Request, res: Response) => {
   const { title } = z_create_chat_body.parse(req.body)
 
@@ -21,6 +26,3 @@ export const create_chat = async (req: Request, res: Response) => {
   })
 }
 
-const z_create_chat_body = z.object({
-  title: z.string().trim().min(1).optional()
-})

@@ -39,20 +39,6 @@ export const upload_files = async (files: File[]): Promise<TApiResponse<any>> =>
   return response.json()
 }
 
-export const get_files = async (): Promise<TApiResponse<any[]>> => {
-  const response = await fetch(`${API_BASE_URL}/api/v1/files`, {
-    headers: {
-      'x-user-id': get_user_id()
-    }
-  })
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch files')
-  }
-
-  return response.json()
-}
-
 export const get_chats = async (): Promise<TApiResponse<any[]>> => {
   const response = await fetch(`${API_BASE_URL}/api/v1/chats`, {
     headers: {
