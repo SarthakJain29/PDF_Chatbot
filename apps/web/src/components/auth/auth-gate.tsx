@@ -2,12 +2,25 @@
 
 import * as React from 'react'
 import { onAuthStateChanged, type User } from 'firebase/auth'
-import { LogOut } from 'lucide-react'
 
 import { get_firebase_auth } from '@/lib/firebase'
-import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { FirebaseAuthUI } from '@/components/auth/firebase-ui'
+
+type TAuthContext = {
+  user: User
+  sign_out: () => void
+}
+
+const AuthContext = React.createContext<TAuthContext | null>(null)
+
+export const use_auth = () => {
+  const context = React.useContext(AuthContext)
+  if (!context) {
+    throw new Error('Auth context is missing')
+  }
+  return context
+}
 
 type TAuthGateProps = {
   children: React.ReactNode
@@ -75,20 +88,11 @@ export const AuthGate = ({ children }: TAuthGateProps) => {
     )
   }
 
+  const handle_sign_out = () => auth?.signOut()
+
   return (
-    <div className="relative">
-      <div className="absolute right-6 top-6 z-10">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-2 text-xs text-slate-500 hover:text-slate-900"
-          onClick={() => auth?.signOut()}
-        >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </Button>
-      </div>
+    <AuthContext.Provider value={{ user, sign_out: handle_sign_out }}>
       {children}
-    </div>
+    </AuthContext.Provider>
   )
 }

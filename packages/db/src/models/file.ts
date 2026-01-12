@@ -7,6 +7,11 @@ const file_schema = new Schema<TFile>(
     user: { type: String, required: true },
     file_name: { type: String, required: true },
     status: { type: String, enum: fileStatusValues, required: true },
+    file_url: { type: String },
+    storage_id: { type: String },
+    size_bytes: { type: Number },
+    mime_type: { type: String },
+    page_count: { type: Number },
   },
   { timestamps: true }
 );

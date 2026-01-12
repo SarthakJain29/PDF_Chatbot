@@ -7,6 +7,8 @@ const chat_schema = new Schema<TChat>(
     title: { type: String, required: true },
     message_count: { type: Number, required: true, default: 0 },
     last_message_at: { type: Date, required: true, default: Date.now },
+    summary: { type: String },
+    summary_updated_at: { type: Date },
     archived_at: { type: Date },
   },
   { timestamps: true }

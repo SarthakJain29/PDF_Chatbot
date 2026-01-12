@@ -17,6 +17,7 @@
     "@my-scope/shared": "*",
     "ai": "^3.4.33",
     "colors": "^1.4.0",
+    "cloudinary": "^2.5.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-async-errors": "^3.1.1",

@@ -2,10 +2,13 @@ import type { RequestHandler } from 'express'
 import type { UploadedFile } from 'express-fileupload'
 
 import { mg } from '@my-scope/db'
+import { MAX_PDF_SIZE_BYTES } from '@my-scope/shared/constants'
 
 import { CHUNK_OVERLAP, CHUNK_SIZE, EMBEDDING_BATCH_SIZE } from '@/constants/ai'
 import { chunk_text } from '@/service/chunking'
+import { download_pdf_from_url, upload_pdf_to_cloudinary } from '@/service/cloudinary'
 import { generate_embeddings } from '@/service/embeddings'
+import { broadcast_file_update } from '@/service/file-stream'
 import { extract_pdf_pages } from '@/service/pdf'
 import { throw_error } from '@/utils/throw-error'
 import z from 'zod'
@@ -13,13 +16,15 @@ import z from 'zod'
 type TUploadResult = {
   file_id?: string
   file_name: string
-  status: 'ready' | 'failed'
+  status: 'uploaded' | 'failed'
   error?: string
 }
 
 const z_file = z.object({
   name: z.string().min(1),
-  size: z.number().max(100 * 1024 * 1024, 'PDF must be <100MB'),
+  size: z
+    .number()
+    .max(MAX_PDF_SIZE_BYTES, `PDF must be <${Math.floor(MAX_PDF_SIZE_BYTES / 1024 / 1024)}MB`),
   data: z.any(),
   mimetype: z.string().refine((m) => m === 'application/pdf', {
     message: 'File must be a PDF'
@@ -35,14 +40,173 @@ const normalize_files = (input: unknown): UploadedFile[] => {
   return (Array.isArray(parsed) ? parsed : [parsed]) as UploadedFile[]
 }
 
+const ingest_file_in_background = async (payload: {
+  file_id: string
+  user_id: string
+  file_name: string
+  file_url: string
+  size_bytes: number
+}): Promise<void> => {
+  const { file_id, user_id, file_name, file_url, size_bytes } = payload
+
+  try {
+    console.info('[upload_files] Starting ingestion', {
+      user_id,
+      file_id,
+      file_name
+    })
+
+    // Move file to processing while we extract + embed.
+    await mg.file.updateOne(
+      { _id: file_id },
+      {
+        $set: {
+          status: 'processing'
+        }
+      }
+    )
+    broadcast_file_update(user_id, {
+      _id: file_id,
+      file_name,
+      status: 'processing'
+    })
+
+    // Enforce size limit even if Cloudinary upload succeeds.
+    if (size_bytes > MAX_PDF_SIZE_BYTES) {
+      throw new Error('File exceeds size limit after upload')
+    }
+
+    // Download the uploaded PDF for text extraction.
+    const pdf_buffer = await download_pdf_from_url(file_url)
+    // Extract text page-by-page with pdfjs-dist.
+    const pages = await extract_pdf_pages(pdf_buffer)
+
+    if (!pages.length) {
+      throw new Error('No extractable text found in PDF')
+    }
+
+    console.info('[upload_files] Extracted PDF pages', {
+      file_name,
+      page_count: pages.length
+    })
+
+    // Chunk each page into token-based slices.
+    const chunks = pages.flatMap((page_text, page_index) => {
+      const page_chunks = chunk_text(page_text, {
+        chunk_size: CHUNK_SIZE,
+        overlap: CHUNK_OVERLAP
+      })
+
+      return page_chunks.map((chunk, chunk_index) => ({
+        page_number: page_index + 1,
+        chunk_index,
+        text: chunk
+      }))
+    })
+
+    console.info('[upload_files] Prepared chunks', {
+      file_name,
+      chunk_count: chunks.length
+    })
+
+    // Generate embeddings and write chunks in batches.
+    for (let i = 0; i < chunks.length; i += EMBEDDING_BATCH_SIZE) {
+      const batch = chunks.slice(i, i + EMBEDDING_BATCH_SIZE)
+      const embeddings = await generate_embeddings(batch.map((chunk) => chunk.text))
+
+      if (!embeddings.length) {
+        console.error('[upload_files] Empty embeddings batch', {
+          file_name,
+          batch_size: batch.length
+        })
+        continue
+      }
+
+      if (embeddings.length !== batch.length) {
+        console.warn('[upload_files] Embedding count mismatch', {
+          file_name,
+          batch_size: batch.length,
+          embedding_count: embeddings.length
+        })
+      }
+
+      await mg.file_page.insertMany(
+        batch
+          .map((chunk, index) => {
+            const embedding = embeddings[index]
+            if (!embedding) {
+              return null
+            }
+
+            return {
+              user: user_id,
+              file: file_id,
+              page_number: chunk.page_number,
+              chunk_index: chunk.chunk_index,
+              text: chunk.text,
+              embedding
+            }
+          })
+          .filter(Boolean)
+      )
+    }
+
+    // Mark file as ready once all chunks are stored.
+    await mg.file.updateOne(
+      { _id: file_id },
+      {
+        $set: {
+          status: 'ready',
+          page_count: pages.length
+        }
+      }
+    )
+    broadcast_file_update(user_id, {
+      _id: file_id,
+      file_name,
+      status: 'ready'
+    })
+
+    console.info('[upload_files] Ingestion completed', {
+      file_name,
+      file_id,
+      chunk_count: chunks.length
+    })
+  } catch (error) {
+    const error_message =
+      error instanceof Error ? error.message : 'Failed to process file'
+
+    console.error('[upload_files] Ingestion failed', {
+      user_id,
+      file_id,
+      file_name,
+      error: error_message
+    })
+
+    // Ensure failed uploads are visible in UI.
+    await mg.file.updateOne(
+      { _id: file_id },
+      {
+        $set: {
+          status: 'failed'
+        }
+      }
+    )
+    broadcast_file_update(user_id, {
+      _id: file_id,
+      file_name,
+      status: 'failed'
+    })
+  }
+}
+
 export const upload_files: RequestHandler = async (req, res) => {
   if (!req.files) {
     console.error('[upload_files] Missing multipart files payload')
     throw_error('No files uploaded', 400)
   }
 
-  // TypeScript guard: req.files is guaranteed to be defined after the check above
-  // Using non-null assertion since we've already checked it's not null/undefined
+  // Resolve file payload from multipart fields.
   const files_obj = req.files!
   const files_payload =
     'files' in files_obj
@@ -58,7 +222,7 @@ export const upload_files: RequestHandler = async (req, res) => {
     throw_error('No files uploaded', 400)
   }
 
-  // Accept single or multiple PDFs (FormData field "files" on the client).
+  // Accept single or multiple PDFs (FormData field "files").
   const files = normalize_files(files_payload)
   const results: TUploadResult[] = []
 
@@ -77,108 +241,48 @@ export const upload_files: RequestHandler = async (req, res) => {
         size_bytes: file.size
       })
 
-      // Create metadata entry first so UI can track status.
+      // Upload raw PDF to Cloudinary for temporary storage.
+      const upload_result = await upload_pdf_to_cloudinary(file, req.user._id)
+      console.info('[upload_files] Uploaded to Cloudinary', {
+        file_name: file.name,
+        public_id: upload_result.public_id,
+        size_bytes: upload_result.bytes
+      })
+
+      // Create metadata entry so UI can render status immediately.
       const file_doc = await mg.file.create({
         user: req.user._id,
+        file_name: file.name,
+        status: 'uploaded',
+        file_url: upload_result.secure_url,
+        storage_id: upload_result.public_id,
+        size_bytes: upload_result.bytes,
+        mime_type: file.mimetype,
+        page_count: 0
+      })
+
+      created_file_id = file_doc._id.toString()
+      broadcast_file_update(req.user._id, {
+        _id: created_file_id,
         file_name: file.name,
         status: 'uploaded'
       })
 
-      created_file_id = file_doc._id.toString()
-
-      // Mark as processing while we extract + embed text.
-      await mg.file.updateOne(
-        { _id: file_doc._id },
-        {
-          $set: {
-            status: 'processing'
-          }
-        }
-      )
-
-      // Extract text page-by-page (raw PDF is not stored).
-      const pages = await extract_pdf_pages(file.data)
-
-      console.info('[upload_files] Extracted PDF pages', {
-        file_name: file.name,
-        page_count: pages.length
-      })
-
-      // Chunk each page with deterministic chunk_index (token-based).
-      const chunks = pages.flatMap((page_text, page_index) => {
-        const page_chunks = chunk_text(page_text, {
-          chunk_size: CHUNK_SIZE,
-          overlap: CHUNK_OVERLAP
+      // Kick off ingestion without blocking the response.
+      setImmediate(() => {
+        void ingest_file_in_background({
+          file_id: created_file_id!,
+          user_id: req.user._id,
+          file_name: file.name,
+          file_url: upload_result.secure_url,
+          size_bytes: upload_result.bytes
         })
-
-        return page_chunks.map((chunk, chunk_index) => ({
-          page_number: page_index + 1,
-          chunk_index,
-          text: chunk
-        }))
       })
-
-      console.info('[upload_files] Prepared chunks', {
-        file_name: file.name,
-        chunk_count: chunks.length
-      })
-
-      // Embed and store chunks in batches for vector search.
-      for (let i = 0; i < chunks.length; i += EMBEDDING_BATCH_SIZE) {
-        const batch = chunks.slice(i, i + EMBEDDING_BATCH_SIZE)
-        const embeddings = await generate_embeddings(batch.map((chunk) => chunk.text))
-
-        if (!embeddings.length) {
-          console.error('[upload_files] Empty embeddings batch', {
-            file_name: file.name,
-            batch_size: batch.length
-          })
-          continue
-        }
-
-        if (embeddings.length !== batch.length) {
-          console.warn('[upload_files] Embedding count mismatch', {
-            file_name: file.name,
-            batch_size: batch.length,
-            embedding_count: embeddings.length
-          })
-        }
-
-        await mg.file_page.insertMany(
-          batch
-            .map((chunk, index) => {
-              const embedding = embeddings[index]
-              if (!embedding) {
-                return null
-              }
-
-              return {
-                user: req.user._id,
-                file: file_doc._id,
-                page_number: chunk.page_number,
-                chunk_index: chunk.chunk_index,
-                text: chunk.text,
-                embedding
-              }
-            })
-            .filter(Boolean)
-        )
-      }
-
-      // Finalize file status once ingestion completes.
-      await mg.file.updateOne(
-        { _id: file_doc._id },
-        {
-          $set: {
-            status: 'ready'
-          }
-        }
-      )
 
       results.push({
         file_id: file_doc._id.toString(),
         file_name: file.name,
-        status: 'ready'
+        status: 'uploaded'
       })
     } catch (error) {
       const error_message =
@@ -195,6 +299,11 @@ export const upload_files: RequestHandler = async (req, res) => {
           { _id: created_file_id },
           { $set: { status: 'failed' } }
         )
+        broadcast_file_update(req.user._id, {
+          _id: created_file_id,
+          file_name: file.name,
+          status: 'failed'
+        })
       }
 
       results.push({
@@ -206,7 +315,7 @@ export const upload_files: RequestHandler = async (req, res) => {
   }
 
   res.status(201).json({
-    message: 'Files processed',
+    message: 'Files uploaded',
     data: results
   })
 }

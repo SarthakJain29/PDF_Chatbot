@@ -14,14 +14,16 @@ export const extract_pdf_pages = async (data: Buffer): Promise<string[]> => {
   try {
     const lib = await getPdfjsLib()
 
-    // Convert Buffer to Uint8Array for pdfjs-dist (we do not persist the PDF).
+    // Convert Buffer to Uint8Array for pdfjs-dist (no disk persistence).
     const uint8Array = new Uint8Array(data)
+    // Disable worker for Node.js ingestion.
     const loadingTask = lib.getDocument({ data: uint8Array, disableWorker: true, useWorkerFetch: false })
     const pdf = await loadingTask.promise
 
     const pages: string[] = []
 
     for (let i = 1; i <= pdf.numPages; i++) {
+      // Extract text per page to preserve page-wise chunking.
       const page = await pdf.getPage(i)
       const content = await page.getTextContent()
       const items = content.items as Array<{ str?: string }>

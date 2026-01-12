@@ -5,4 +5,4 @@ export const CHUNK_SIZE = 1200
 export const CHUNK_OVERLAP = 200
 export const VECTOR_LIMIT = 8
 export const VECTOR_CANDIDATES = 80
-export const EMBEDDING_BATCH_SIZE = 64
+export const EMBEDDING_BATCH_SIZE = 20

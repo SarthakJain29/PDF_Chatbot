@@ -9,6 +9,11 @@ export type TFile<TFileUser = string> = {
   user: TFileUser;
   file_name: string;
   status: FileStatus;
+  file_url?: string;
+  storage_id?: string;
+  size_bytes?: number;
+  mime_type?: string;
+  page_count?: number;
 };
 
 export type TFileDoc<TId = TObjectId, TFileUser = string> = TDocument<TId> & TFile<TFileUser>;

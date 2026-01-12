@@ -53,6 +53,66 @@ export const get_chats = async (): Promise<TApiResponse<any[]>> => {
   return response.json()
 }
 
+export const get_files = async (): Promise<TApiResponse<any[]>> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/files`, {
+    headers: {
+      'x-user-id': get_user_id()
+    }
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch files')
+  }
+
+  return response.json()
+}
+
+type TFileStreamHandlers<TFile = any> = {
+  on_snapshot: (_files: TFile[]) => void
+  on_update: (_file: TFile) => void
+  on_error?: (_message: string) => void
+}
+
+export const subscribe_file_updates = <TFile = any>(
+  handlers: TFileStreamHandlers<TFile>
+): (() => void) => {
+  if (typeof window === 'undefined') {
+    return () => {}
+  }
+
+  const user_id = get_user_id()
+  const stream_url = new URL(`${API_BASE_URL}/api/v1/files/stream`)
+  stream_url.searchParams.set('user_id', user_id)
+
+  const source = new EventSource(stream_url.toString())
+
+  source.addEventListener('snapshot', (event) => {
+    try {
+      const payload = JSON.parse((event as MessageEvent).data) as TFile[]
+      handlers.on_snapshot(payload)
+    } catch {
+      handlers.on_error?.('Failed to parse file snapshot')
+    }
+  })
+
+  source.addEventListener('update', (event) => {
+    try {
+      const payload = JSON.parse((event as MessageEvent).data) as TFile
+      handlers.on_update(payload)
+    } catch {
+      handlers.on_error?.('Failed to parse file update')
+    }
+  })
+
+  source.addEventListener('error', () => {
+    handlers.on_error?.('File updates disconnected')
+  })
+
+  return () => {
+    source.close()
+  }
+}
+
 export const create_chat = async (title?: string): Promise<TApiResponse<any>> => {
   const response = await fetch(`${API_BASE_URL}/api/v1/chats`, {
     method: 'POST',
@@ -91,6 +151,7 @@ type TStreamHandlers = {
   on_sources: (_sources: any[]) => void
   on_done: (_text: string) => void
   on_error: (_message: string) => void
+  on_title?: (_payload: { chat_id: string; title: string }) => void
 }
 
 export const stream_chat_message = async (
@@ -118,6 +179,7 @@ export const stream_chat_message = async (
   await read_sse_stream(response, {
     delta: (data) => handlers.on_delta(data.text),
     sources: (data) => handlers.on_sources(data.sources),
+    chat_title: (data) => handlers.on_title?.(data),
     done: (data) => handlers.on_done(data.text),
     error: (data) => handlers.on_error(data.message)
   })

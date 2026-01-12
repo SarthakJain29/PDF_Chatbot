@@ -7,6 +7,8 @@ export type TChat<TChatUser = string> = {
   title: string;
   message_count: number;
   last_message_at: Date;
+  summary?: string;
+  summary_updated_at?: Date;
   archived_at?: Date;
 };
 
