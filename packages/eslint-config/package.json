@@ -17,5 +17,9 @@
   },
   "peerDependencies": {
     "eslint": "^8.0.0 || ^9.0.0"
+  },
+  "dependencies": {
+    "eslint-config-next": "^14.2.0",
+    "eslint-config-prettier": "^9.1.0"
   }
 }

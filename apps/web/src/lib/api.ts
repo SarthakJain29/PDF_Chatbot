@@ -87,10 +87,10 @@ export const get_chat_messages = async (
 }
 
 type TStreamHandlers = {
-  on_delta: (text: string) => void
-  on_sources: (sources: any[]) => void
-  on_done: (text: string) => void
-  on_error: (message: string) => void
+  on_delta: (_text: string) => void
+  on_sources: (_sources: any[]) => void
+  on_done: (_text: string) => void
+  on_error: (_message: string) => void
 }
 
 export const stream_chat_message = async (

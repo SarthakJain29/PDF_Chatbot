@@ -26,7 +26,8 @@
     "lint-staged": "^15.2.2"
   },
   "dependencies": {
-    "express-fileupload": "^1.5.2"
+    "express-fileupload": "^1.5.2",
+    "firebaseui": "^6.1.0"
   },
   "overrides": {
     "bson": "^6.10.4"

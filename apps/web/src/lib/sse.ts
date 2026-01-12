@@ -1,8 +1,8 @@
 type TSseHandlers = {
-  delta?: (data: { text: string }) => void
-  sources?: (data: { sources: Array<Record<string, unknown>> }) => void
-  done?: (data: { text: string }) => void
-  error?: (data: { message: string }) => void
+  delta?: (_data: { text: string }) => void
+  sources?: (_data: { sources: Array<Record<string, unknown>> }) => void
+  done?: (_data: { text: string }) => void
+  error?: (_data: { message: string }) => void
 }
 
 export const read_sse_stream = async (
@@ -17,6 +17,7 @@ export const read_sse_stream = async (
   const decoder = new TextDecoder('utf-8')
   let buffer = ''
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { value, done } = await reader.read()
     if (done) {

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Inter, Space_Grotesk, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { AuthGate } from "@/components/auth/auth-gate";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -28,14 +30,16 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <html
       lang="en"
       className={`${inter.variable} ${spaceGrotesk.variable} ${plusJakarta.variable}`}
     >
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <AuthGate>{children}</AuthGate>
+      </body>
     </html>
   );
 }
