@@ -4,7 +4,7 @@ import * as React from 'react'
 import { Bot, LogOut, MessageSquare, PanelLeftClose, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { use_auth } from '@/components/auth/auth-gate'
+import { useAuth } from '@/components/auth/auth-gate'
 
 type TChatItem = {
   _id: string
@@ -16,7 +16,7 @@ type TChatSidebarProps = {
   chats: TChatItem[]
   active_chat_id?: string
   on_new_chat: () => void
-  on_select_chat: (chat_id: string) => void
+  on_select_chat: (_chat_id: string) => void
   is_open: boolean
   on_toggle: () => void
 }
@@ -29,7 +29,7 @@ export const ChatSidebar = ({
   is_open,
   on_toggle
 }: TChatSidebarProps) => {
-  const { sign_out } = use_auth()
+  const { sign_out } = useAuth()
 
   if (!is_open) {
     return null

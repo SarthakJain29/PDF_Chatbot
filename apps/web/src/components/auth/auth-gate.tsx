@@ -14,7 +14,7 @@ type TAuthContext = {
 
 const AuthContext = React.createContext<TAuthContext | null>(null)
 
-export const use_auth = () => {
+export const useAuth = () => {
   const context = React.useContext(AuthContext)
   if (!context) {
     throw new Error('Auth context is missing')

@@ -8,8 +8,6 @@ import { get_firebase_auth } from '@/lib/firebase'
 const UI_CONTAINER_ID = 'firebaseui-auth-container'
 const FIREBASE_UI_CSS =
   'https://www.gstatic.com/firebasejs/ui/6.1.0/firebase-ui-auth.css'
-const FIREBASE_UI_JS =
-  'https://www.gstatic.com/firebasejs/ui/6.1.0/firebase-ui-auth.js'
 
 const load_firebaseui_css = () => {
   if (typeof document === 'undefined') {
@@ -27,29 +25,9 @@ const load_firebaseui_css = () => {
   document.head.appendChild(link)
 }
 
-const load_firebaseui_script = () =>
-  new Promise<any>((resolve, reject) => {
-    if (typeof window === 'undefined') {
-      reject(new Error('Window is not available'))
-      return
-    }
-
-    const existing = (window as any).firebaseui
-    if (existing) {
-      resolve(existing)
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = FIREBASE_UI_JS
-    script.async = true
-    script.onload = () => resolve((window as any).firebaseui)
-    script.onerror = () =>
-      reject(new Error('Failed to load Firebase UI script'))
-    document.head.appendChild(script)
-  })
-
 export const FirebaseAuthUI = () => {
+  const [error, setError] = React.useState<string | null>(null)
+
   React.useEffect(() => {
     let is_active = true
     let ui: any = null
@@ -57,16 +35,21 @@ export const FirebaseAuthUI = () => {
     const initFirebaseUI = async () => {
       const auth = get_firebase_auth()
       if (!auth || !is_active) {
+        if (!auth) {
+          setError('Firebase config is missing')
+        }
         return
       }
 
       load_firebaseui_css()
-      const firebaseui = await load_firebaseui_script()
+      const firebaseui_module = await import('firebaseui')
+      const firebaseui = (firebaseui_module as any).default || firebaseui_module
 
       ui =
         firebaseui.auth.AuthUI.getInstance() ||
         new firebaseui.auth.AuthUI(auth)
 
+      ui.reset()
       ui.start(`#${UI_CONTAINER_ID}`, {
         signInFlow: 'popup',
         signInOptions: [EmailAuthProvider.PROVIDER_ID],
@@ -79,6 +62,7 @@ export const FirebaseAuthUI = () => {
 
     initFirebaseUI().catch((error) => {
       console.error('Failed to initialize Firebase UI:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load sign-in')
     })
 
     return () => {
@@ -89,5 +73,12 @@ export const FirebaseAuthUI = () => {
     }
   }, [])
 
-  return <div id={UI_CONTAINER_ID} />
+  return (
+    <div className="space-y-3">
+      {error ? (
+        <p className="text-xs text-rose-500">{error}</p>
+      ) : null}
+      <div id={UI_CONTAINER_ID} />
+    </div>
+  )
 }

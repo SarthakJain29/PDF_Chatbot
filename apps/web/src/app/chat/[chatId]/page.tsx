@@ -115,18 +115,27 @@ export default function ChatPage({ params }: TChatPageProps) {
     load_sidebar()
   }, [load_sidebar])
 
-  const upsert_file = React.useCallback((file: TFileDoc) => {
-    setFiles((prev) => {
-      const index = prev.findIndex((item) => item._id === file._id)
-      if (index === -1) {
-        return [file, ...prev]
-      }
+  const merge_files = React.useCallback((prev: TFileDoc[], incoming: TFileDoc[]) => {
+    const next = [...prev]
 
-      const next = [...prev]
-      next[index] = { ...next[index], ...file }
-      return next
-    })
+    for (const file of incoming) {
+      const index = next.findIndex((item) => item._id === file._id)
+      if (index === -1) {
+        next.unshift(file)
+      } else {
+        next[index] = { ...next[index], ...file }
+      }
+    }
+
+    return next
   }, [])
+
+  const upsert_file = React.useCallback(
+    (file: TFileDoc) => {
+      setFiles((prev) => merge_files(prev, [file]))
+    },
+    [merge_files]
+  )
 
   React.useEffect(() => {
     const unsubscribe = subscribe_file_updates<TFileDoc>({
@@ -164,14 +173,12 @@ export default function ChatPage({ params }: TChatPageProps) {
         : []
 
       if (uploaded_files.length) {
-        setFiles((prev) => [
-          ...uploaded_files.map((file, index) => ({
-            _id: file.file_id || `${file.file_name}-${Date.now()}-${index}`,
-            file_name: file.file_name,
-            status: file.status
-          })),
-          ...prev
-        ])
+        const mapped = uploaded_files.map((file, index) => ({
+          _id: file.file_id || `${file.file_name}-${Date.now()}-${index}`,
+          file_name: file.file_name,
+          status: file.status
+        }))
+        setFiles((prev) => merge_files(prev, mapped))
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
@@ -277,7 +284,7 @@ export default function ChatPage({ params }: TChatPageProps) {
           on_toggle={() => setIsSidebarOpen(false)}
         />
 
-        <main className="flex h-full min-h-0 flex-col overflow-hidden bg-slate-100/80">
+        <main className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-slate-100/80">
           <input
             ref={file_input_ref}
             type="file"
@@ -319,7 +326,7 @@ export default function ChatPage({ params }: TChatPageProps) {
             <div className="w-14" />
           </div>
 
-          <div className="flex-1 min-h-0 space-y-4 overflow-y-auto px-6 py-6">
+          <div className="min-h-0 space-y-4 overflow-y-auto px-6 py-6">
             {messages.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center text-sm text-slate-500">
                 Start by asking a question about your uploaded PDFs.

@@ -6,3 +6,8 @@ export const CHUNK_OVERLAP = 200
 export const VECTOR_LIMIT = 8
 export const VECTOR_CANDIDATES = 80
 export const EMBEDDING_BATCH_SIZE = 20
+
+export const nowIST = new Date().toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour12: false
+  })

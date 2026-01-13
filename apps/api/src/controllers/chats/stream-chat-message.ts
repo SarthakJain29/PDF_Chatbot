@@ -1,12 +1,12 @@
 import { Request, Response } from 'express'
 import { z } from 'zod'
-import { generateText, streamText } from 'ai'
+import { generateText, streamText, tool } from 'ai'
 import { openai } from '@ai-sdk/openai'
 
 import { mg } from '@my-scope/db'
 import type { TMessageContent } from '@my-scope/shared/types'
 
-import { OPENAI_CHAT_MODEL } from '@/constants/ai'
+import { nowIST, OPENAI_CHAT_MODEL } from '@/constants/ai'
 import { generate_embedding } from '@/service/embeddings'
 import { find_similar_chunks } from '@/service/vector-search'
 import { z_object_id } from '@/utils/schema'
@@ -215,118 +215,77 @@ export const stream_chat_message = async (req: Request, res: Response) => {
 
   init_sse(res)
 
+  
+
   const abort_controller = new AbortController()
   req.on('close', () => abort_controller.abort())
 
   try {
-    const is_chunk_request = /(?:show|return|provide|give|list|display).*(?:chunk|context|source|citation|retrieved)/i.test(
-      content
-    )
-    const last_user_message = recent_messages.find(
-      (message) => message.role === 'user'
-    )
-    const retrieval_query =
-      is_chunk_request && last_user_message
-        ? typeof last_user_message.content === 'string'
-          ? last_user_message.content
-          : last_user_message.content?.text || content
-        : content
+    const system_prompt = [
+      `You are a PDF chatbot. You must never answer using general knowledge.
+      'Use the retrieve_context tool for any question that requires document knowledge.
+      'If the user asks to show retrieved chunks or raw context, call retrieve_context and respond ONLY with the returned context text.
+      'If retrieve_context returns no chunks or empty context, say you do not have enough information from the uploaded PDFs.
+      'If the user is greeting or making small talk, you may respond briefly without calling tools.
+      chat?.summary ? Conversation summary:\n${chat?.summary} : null
+      current date and time: ${nowIST}
+      TimeZone: Asia/Kolkata (UTC+5:30)`
 
-    const query_embedding = await generate_embedding(retrieval_query)
-    const chunks = await find_similar_chunks({
-      embedding: query_embedding,
-      query: retrieval_query,
-      user: req.user._id
-    })
-
-    if (is_chunk_request) {
-      const chunk_response = chunks.length
-        ? chunks
-            .map(
-              (chunk, index) =>
-                `[${index + 1}] ${chunk.file_name} (page ${chunk.page_number})\n${chunk.text}`
-            )
-            .join('\n\n')
-        : 'No retrieved chunks found for the previous question.'
-
-      send_sse_event(res, {
-        event: 'delta',
-        data: { text: chunk_response }
-      })
-
-      await mg.message.create({
-        chat: _id,
-        user: req.user._id,
-        role: 'assistant',
-        content: chunk_response,
-        status: 'complete',
-        model: OPENAI_CHAT_MODEL,
-        retry_attempts: 0
-      })
-
-      await mg.chat.updateOne(
-        { _id },
-        { $inc: { message_count: 2 }, $set: { last_message_at: new Date() } }
-      )
-
-      const updated_chat = await mg.chat.findOne({ _id }).lean()
-      if (updated_chat) {
-        await update_chat_summary_if_needed({
-          chat_id: _id,
-          user_id: req.user._id,
-          message_count: updated_chat.message_count || 0,
-          current_summary: updated_chat.summary,
-          summary_updated_at: updated_chat.summary_updated_at
-        })
-      }
-
-      const generated_title = await title_promise
-      if (generated_title) {
-        send_sse_event(res, {
-          event: 'chat_title',
-          data: { chat_id: _id, title: generated_title }
-        })
-      }
-
-      send_sse_event(res, {
-        event: 'done',
-        data: { text: chunk_response }
-      })
-
-      res.end()
-      return
-    }
-
-    const context = chunks
-      .map(
-        (chunk, index) =>
-          `[${index + 1}] ${chunk.file_name} (page ${chunk.page_number})\n${chunk.text}`
-      )
-      .join('\n\n')
-
-    const system_prompt =
-      `You are a PDF chatbot.
-Answer questions only using the provided document context and conversation history.
-Do not use outside knowledge or make assumptions beyond the document content.
-If the user asks to see the retrieved chunks or raw context, return the exact chunk text with citations.
-
-Be clear, concise, and factual.`
-
-    const history = format_history(recent_messages.slice().reverse())
-
-    const user_prompt = [
-      chat?.summary ? `Conversation summary:\n${chat?.summary}` : null,
-      `Context:\n${context || 'No relevant context found.'}`,
-      history ? `Conversation so far:\n${history}` : null,
-      `Question:\n${content}`
     ]
       .filter(Boolean)
       .join('\n\n')
 
+    const history_messages = recent_messages
+      .slice()
+      .reverse()
+      .map((message) => ({
+        role: message.role,
+        content: get_message_text(message)
+      }))
+      .filter((message) => message.content)
+
+    const retrieve_context_tool = tool({
+      description: 'Retrieve relevant chunks from the user uploaded PDFs.',
+      parameters: z.object({
+        query: z.string().min(1)
+      }),
+      execute: async ({ query }) => {
+        const query_embedding = await generate_embedding(query)
+        const chunks = await find_similar_chunks({
+          embedding: query_embedding,
+          query,
+          user: req.user._id
+        })
+
+        const context = chunks
+          .map(
+            (chunk, index) =>
+              `[${index + 1}] ${chunk.file_name} (page ${chunk.page_number})\n${chunk.text}`
+          )
+          .join('\n\n')
+
+        return {
+          has_results: chunks.length > 0,
+          context,
+          chunks: chunks.map((chunk) => ({
+            file_name: chunk.file_name,
+            page_number: chunk.page_number,
+            text: chunk.text,
+            score: chunk.score
+          }))
+        }
+      }
+    })
+
     const result = await streamText({
       model: chat_model as any,
       system: system_prompt,
-      prompt: user_prompt,
+      messages: [...history_messages, { role: 'user', content }],
+      tools: {
+        retrieve_context: retrieve_context_tool
+      },
+      toolChoice: 'auto',
+      maxToolRoundtrips: 1,
       abortSignal: abort_controller.signal
     })
 

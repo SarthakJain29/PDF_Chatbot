@@ -6,10 +6,14 @@ import { MAX_PDF_SIZE_BYTES } from '@my-scope/shared/constants'
 
 import { CHUNK_OVERLAP, CHUNK_SIZE, EMBEDDING_BATCH_SIZE } from '@/constants/ai'
 import { chunk_text } from '@/service/chunking'
-import { download_pdf_from_url, upload_pdf_to_cloudinary } from '@/service/cloudinary'
+import { upload_pdf_to_cloudinary } from '@/service/cloudinary'
 import { generate_embeddings } from '@/service/embeddings'
 import { broadcast_file_update } from '@/service/file-stream'
-import { extract_pdf_pages } from '@/service/pdf'
+import {
+  close_pdf_document,
+  extract_pdf_page_text,
+  open_pdf_from_url
+} from '@/service/pdf'
 import { throw_error } from '@/utils/throw-error'
 import z from 'zod'
 
@@ -76,79 +80,123 @@ const ingest_file_in_background = async (payload: {
       throw new Error('File exceeds size limit after upload')
     }
 
-    // Download the uploaded PDF for text extraction.
-    const pdf_buffer = await download_pdf_from_url(file_url)
-    // Extract text page-by-page with pdfjs-dist.
-    const pages = await extract_pdf_pages(pdf_buffer)
+    // Stream the PDF via range requests (no full-buffer download).
+    const { pdf, loadingTask } = await open_pdf_from_url(file_url)
+    const total_pages = pdf.numPages
+    let total_chunks = 0
+    const pending_chunks: Array<{
+      page_number: number
+      chunk_index: number
+      text: string
+    }> = []
 
-    if (!pages.length) {
-      throw new Error('No extractable text found in PDF')
-    }
-
-    console.info('[upload_files] Extracted PDF pages', {
-      file_name,
-      page_count: pages.length
-    })
-
-    // Chunk each page into token-based slices.
-    const chunks = pages.flatMap((page_text, page_index) => {
-      const page_chunks = chunk_text(page_text, {
-        chunk_size: CHUNK_SIZE,
-        overlap: CHUNK_OVERLAP
+    try {
+      console.info('[upload_files] Extracted PDF pages', {
+        file_name,
+        page_count: total_pages
       })
 
-      return page_chunks.map((chunk, chunk_index) => ({
-        page_number: page_index + 1,
-        chunk_index,
-        text: chunk
-      }))
-    })
+      for (let page_number = 1; page_number <= total_pages; page_number++) {
+        // Extract text for a single page, then chunk immediately.
+        const page_text = await extract_pdf_page_text(pdf, page_number)
+        if (!page_text) {
+          continue
+        }
 
-    console.info('[upload_files] Prepared chunks', {
-      file_name,
-      chunk_count: chunks.length
-    })
-
-    // Generate embeddings and write chunks in batches.
-    for (let i = 0; i < chunks.length; i += EMBEDDING_BATCH_SIZE) {
-      const batch = chunks.slice(i, i + EMBEDDING_BATCH_SIZE)
-      const embeddings = await generate_embeddings(batch.map((chunk) => chunk.text))
-
-      if (!embeddings.length) {
-        console.error('[upload_files] Empty embeddings batch', {
-          file_name,
-          batch_size: batch.length
+        const page_chunks = chunk_text(page_text, {
+          chunk_size: CHUNK_SIZE,
+          overlap: CHUNK_OVERLAP
         })
-        continue
+
+        if (!page_chunks.length) {
+          continue
+        }
+
+        total_chunks += page_chunks.length
+        pending_chunks.push(
+          ...page_chunks.map((chunk, chunk_index) => ({
+            page_number,
+            chunk_index,
+            text: chunk
+          }))
+        )
+
+        // Flush batches as soon as we hit the embedding batch size.
+        while (pending_chunks.length >= EMBEDDING_BATCH_SIZE) {
+          const batch = pending_chunks.splice(0, EMBEDDING_BATCH_SIZE)
+          const embeddings = await generate_embeddings(
+            batch.map((chunk) => chunk.text)
+          )
+
+          if (!embeddings.length) {
+            console.error('[upload_files] Empty embeddings batch', {
+              file_name,
+              batch_size: batch.length
+            })
+            continue
+          }
+
+          if (embeddings.length !== batch.length) {
+            console.warn('[upload_files] Embedding count mismatch', {
+              file_name,
+              batch_size: batch.length,
+              embedding_count: embeddings.length
+            })
+          }
+
+          await mg.file_page.insertMany(
+            batch
+              .map((chunk, index) => {
+                const embedding = embeddings[index]
+                if (!embedding) {
+                  return null
+                }
+
+                return {
+                  user: user_id,
+                  file: file_id,
+                  page_number: chunk.page_number,
+                  chunk_index: chunk.chunk_index,
+                  text: chunk.text,
+                  embedding
+                }
+              })
+              .filter(Boolean)
+          )
+        }
       }
 
-      if (embeddings.length !== batch.length) {
-        console.warn('[upload_files] Embedding count mismatch', {
-          file_name,
-          batch_size: batch.length,
-          embedding_count: embeddings.length
-        })
+      if (pending_chunks.length) {
+        const embeddings = await generate_embeddings(
+          pending_chunks.map((chunk) => chunk.text)
+        )
+
+        await mg.file_page.insertMany(
+          pending_chunks
+            .map((chunk, index) => {
+              const embedding = embeddings[index]
+              if (!embedding) {
+                return null
+              }
+
+              return {
+                user: user_id,
+                file: file_id,
+                page_number: chunk.page_number,
+                chunk_index: chunk.chunk_index,
+                text: chunk.text,
+                embedding
+              }
+            })
+            .filter(Boolean)
+        )
       }
+    } finally {
+      await close_pdf_document({ pdf, loadingTask })
+    }
 
-      await mg.file_page.insertMany(
-        batch
-          .map((chunk, index) => {
-            const embedding = embeddings[index]
-            if (!embedding) {
-              return null
-            }
-
-            return {
-              user: user_id,
-              file: file_id,
-              page_number: chunk.page_number,
-              chunk_index: chunk.chunk_index,
-              text: chunk.text,
-              embedding
-            }
-          })
-          .filter(Boolean)
-      )
+    if (!total_chunks) {
+      throw new Error('No extractable text found in PDF')
     }
 
     // Mark file as ready once all chunks are stored.
@@ -157,7 +205,7 @@ const ingest_file_in_background = async (payload: {
       {
         $set: {
           status: 'ready',
-          page_count: pages.length
+          page_count: total_pages
         }
       }
     )
@@ -170,7 +218,7 @@ const ingest_file_in_background = async (payload: {
     console.info('[upload_files] Ingestion completed', {
       file_name,
       file_id,
-      chunk_count: chunks.length
+      chunk_count: total_chunks
     })
   } catch (error) {
     const error_message =

@@ -9,7 +9,13 @@ import { Card } from '@/components/ui/card'
 import { ChatSidebar } from '@/components/layout/chat-sidebar'
 import { FilePanel } from '@/components/layout/file-panel'
 import { MAX_PDF_SIZE_MB } from '@my-scope/shared/constants'
-import { get_chats, get_files, subscribe_file_updates, upload_files } from '@/lib/api'
+import {
+  create_chat,
+  get_chats,
+  get_files,
+  subscribe_file_updates,
+  upload_files
+} from '@/lib/api'
 
 type TChat = {
   _id: string
@@ -59,18 +65,30 @@ export default function Home() {
     load_data()
   }, [load_data])
 
-  const upsert_file = React.useCallback((file: TFileDoc) => {
-    setFiles((prev) => {
-      const index = prev.findIndex((item) => item._id === file._id)
-      if (index === -1) {
-        return [file, ...prev]
+  const merge_files = React.useCallback(
+    (prev: TFileDoc[], incoming: TFileDoc[]) => {
+      const next = [...prev]
+
+      for (const file of incoming) {
+        const index = next.findIndex((item) => item._id === file._id)
+        if (index === -1) {
+          next.unshift(file)
+        } else {
+          next[index] = { ...next[index], ...file }
+        }
       }
 
-      const next = [...prev]
-      next[index] = { ...next[index], ...file }
       return next
-    })
-  }, [])
+    },
+    []
+  )
+
+  const upsert_file = React.useCallback(
+    (file: TFileDoc) => {
+      setFiles((prev) => merge_files(prev, [file]))
+    },
+    [merge_files]
+  )
 
   React.useEffect(() => {
     const unsubscribe = subscribe_file_updates<TFileDoc>({
@@ -104,14 +122,12 @@ export default function Home() {
         : []
 
       if (uploaded_files.length) {
-        setFiles((prev) => [
-          ...uploaded_files.map((file, index) => ({
-            _id: file.file_id || `${file.file_name}-${Date.now()}-${index}`,
-            file_name: file.file_name,
-            status: file.status
-          })),
-          ...prev
-        ])
+        const mapped = uploaded_files.map((file, index) => ({
+          _id: file.file_id || `${file.file_name}-${Date.now()}-${index}`,
+          file_name: file.file_name,
+          status: file.status
+        }))
+        setFiles((prev) => merge_files(prev, mapped))
       }
 
       const chat_title =
