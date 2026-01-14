@@ -1,7 +1,4 @@
-type TChunkOptions = {
-  chunk_size: number
-  overlap: number
-}
+import type { TChunkOptions } from '@/types/chunking'
 
 export const chunk_text = (text: string, options: TChunkOptions): string[] => {
   // Tokenize by whitespace so chunk sizes are token-based (page-wise chunking happens upstream).

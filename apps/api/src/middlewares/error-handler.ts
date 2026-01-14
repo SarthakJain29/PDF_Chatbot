@@ -3,16 +3,7 @@ import { ZodError } from 'zod'
 import { generateErrorMessage } from 'zod-error'
 
 import CustomError from '@/utils/CustomError'
-
-type TApiError = {
-  message: string
-  status_code: number
-  validation_error?: {
-    fields: string[]
-    details: Array<{ field: string; message: string; code: string }>
-  }
-  stack?: string
-}
+import type { TApiError } from '@/types/errors'
 
 const is_prod = process.env.NODE_ENV === 'production'
 

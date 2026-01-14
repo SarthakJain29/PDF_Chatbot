@@ -1,14 +1,6 @@
 import path from 'path'
 
-type TEnv = {
-  api_port: number
-  file_storage_dir: string
-  openai_api_key: string | 'NA'
-  mongodb_uri: string | 'NA'
-  cloudinary_cloud_name: string | 'NA'
-  cloudinary_api_key: string | 'NA'
-  cloudinary_api_secret: string | 'NA'
-}
+import type { TEnv } from '@/types/env'
 
 export const env: TEnv = {
   api_port: parseInt(process.env.API_PORT || '5000'),

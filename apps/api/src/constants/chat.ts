@@ -1,0 +1,1 @@
+export const SUMMARY_UPDATE_INTERVAL = 10;

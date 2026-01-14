@@ -1,10 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 
 import { throw_error } from '@/utils/throw-error'
-
-type TUserContext = {
-  _id: string
-}
+import type { TUserContext } from '@/types/auth'
 
 export const is_authenticated = (
   req: Request,

@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import type { TFile, FileStatus } from "@my-scope/shared/types";
+import type { TFile } from "@my-scope/shared/types";
 import { fileStatusValues } from "@my-scope/shared/types";
 
 const file_schema = new Schema<TFile>(

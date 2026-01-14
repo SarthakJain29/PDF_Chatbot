@@ -8,143 +8,66 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ChatSidebar } from '@/components/layout/chat-sidebar'
 import { FilePanel } from '@/components/layout/file-panel'
+import { stream_chat_message } from '@/lib/api'
+import { CHAT_BUBBLE_STYLES } from '@/constants/chat'
 import {
-  get_chat_messages,
-  get_chats,
-  get_files,
-  stream_chat_message,
-  subscribe_file_updates,
-  upload_files
-} from '@/lib/api'
-
-type TChatMessage = {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  streaming?: boolean
-}
-
-type TMessageDoc = {
-  _id: string
-  role: 'user' | 'assistant'
-  content: string | { text: string }
-}
-
-type TChat = {
-  _id: string
-  title: string
-  message_count: number
-}
-
-type TFileDoc = {
-  _id: string
-  file_name: string
-  status: string
-}
-
-type TUploadResult = {
-  file_id?: string
-  file_name: string
-  status: string
-  error?: string
-}
-
-type TChatPageProps = {
-  params: { chatId: string }
-}
-
-const bubble_styles = {
-  user: 'bg-indigo-600 text-white',
-  assistant: 'bg-white border border-slate-200 text-slate-900'
-}
+  useChats,
+  useChatMessages,
+  useFiles,
+  useFileStream,
+  useUploadFiles
+} from '@/lib/queries'
+import type { TChatMessage, TChatMessageDoc, TChatPageProps } from '@/types/chat'
+import { useQueryClient } from '@tanstack/react-query'
 
 export default function ChatPage({ params }: TChatPageProps) {
   const router = useRouter()
+  const query_client = useQueryClient()
   const file_input_ref = React.useRef<HTMLInputElement | null>(null)
   const [is_sidebar_open, setIsSidebarOpen] = React.useState(true)
   const [messages, setMessages] = React.useState<TChatMessage[]>([])
-  const [chats, setChats] = React.useState<TChat[]>([])
-  const [files, setFiles] = React.useState<TFileDoc[]>([])
   const [active_title, setActiveTitle] = React.useState<string | null>(null)
   const [input, setInput] = React.useState('')
   const [isStreaming, setIsStreaming] = React.useState(false)
   const [isUploading, setIsUploading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const messages_end_ref = React.useRef<HTMLDivElement>(null)
+  const { data: chats = [] } = useChats()
+  const { data: files = [] } = useFiles()
+  const { data: message_docs = [], error: messagesError } = useChatMessages(
+    params.chatId
+  )
+  const upload_files_mutation = useUploadFiles()
 
-  const load_messages = React.useCallback(async () => {
-    try {
-      const response = await get_chat_messages(params.chatId)
-      const normalized = response.data.map((message: TMessageDoc) => {
-        if (typeof message.content === 'string') {
-          return {
-            id: message._id,
-            role: message.role,
-            content: message.content
-          }
-        }
+  useFileStream()
 
+  React.useEffect(() => {
+    if (messagesError) {
+      setError(
+        messagesError instanceof Error ? messagesError.message : 'Failed to load messages'
+      )
+    }
+  }, [messagesError])
+
+  React.useEffect(() => {
+    const normalized = message_docs.map((message: TChatMessageDoc) => {
+      if (typeof message.content === 'string') {
         return {
           id: message._id,
           role: message.role,
-          content: message.content.text
+          content: message.content
         }
-      })
-
-      setMessages(normalized)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load messages')
-    }
-  }, [params.chatId])
-
-  const load_sidebar = React.useCallback(async () => {
-    try {
-      const [chats_res, files_res] = await Promise.all([get_chats(), get_files()])
-      setChats(chats_res.data)
-      setFiles(files_res.data)
-    } catch {
-      // Sidebar failures should not block chat.
-    }
-  }, [])
-
-  React.useEffect(() => {
-    load_messages()
-  }, [load_messages])
-
-  React.useEffect(() => {
-    load_sidebar()
-  }, [load_sidebar])
-
-  const merge_files = React.useCallback((prev: TFileDoc[], incoming: TFileDoc[]) => {
-    const next = [...prev]
-
-    for (const file of incoming) {
-      const index = next.findIndex((item) => item._id === file._id)
-      if (index === -1) {
-        next.unshift(file)
-      } else {
-        next[index] = { ...next[index], ...file }
       }
-    }
 
-    return next
-  }, [])
-
-  const upsert_file = React.useCallback(
-    (file: TFileDoc) => {
-      setFiles((prev) => merge_files(prev, [file]))
-    },
-    [merge_files]
-  )
-
-  React.useEffect(() => {
-    const unsubscribe = subscribe_file_updates<TFileDoc>({
-      on_snapshot: (snapshot) => setFiles(snapshot),
-      on_update: (file) => upsert_file(file)
+      return {
+        id: message._id,
+        role: message.role,
+        content: message.content.text
+      }
     })
 
-    return () => unsubscribe()
-  }, [upsert_file])
+    setMessages(normalized)
+  }, [message_docs, params.chatId])
 
   React.useEffect(() => {
     messages_end_ref.current?.scrollIntoView({ behavior: 'smooth' })
@@ -167,19 +90,7 @@ export default function ChatPage({ params }: TChatPageProps) {
       setError(null)
       setIsUploading(true)
 
-      const upload_res = await upload_files(selected_files)
-      const uploaded_files = Array.isArray(upload_res.data)
-        ? (upload_res.data as TUploadResult[])
-        : []
-
-      if (uploaded_files.length) {
-        const mapped = uploaded_files.map((file, index) => ({
-          _id: file.file_id || `${file.file_name}-${Date.now()}-${index}`,
-          file_name: file.file_name,
-          status: file.status
-        }))
-        setFiles((prev) => merge_files(prev, mapped))
-      }
+      await upload_files_mutation.mutateAsync(selected_files)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
@@ -232,7 +143,7 @@ export default function ChatPage({ params }: TChatPageProps) {
       on_sources: () => {},
       on_title: (payload) => {
         setActiveTitle(payload.title)
-        setChats((prev) =>
+        query_client.setQueryData<any[]>(['chats'], (prev = []) =>
           prev.map((chat) =>
             chat._id === payload.chat_id ? { ...chat, title: payload.title } : chat
           )
@@ -247,7 +158,6 @@ export default function ChatPage({ params }: TChatPageProps) {
           )
         )
         setIsStreaming(false)
-        void load_sidebar()
       },
       on_error: (message) => {
         setError(message)
@@ -337,7 +247,7 @@ export default function ChatPage({ params }: TChatPageProps) {
                   key={message.id}
                   className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
                     message.role === 'user' ? 'ml-auto' : 'mr-auto'
-                  } ${bubble_styles[message.role]}`}
+                  } ${CHAT_BUBBLE_STYLES[message.role]}`}
                 >
                   <p>{message.content || (message.streaming ? '...' : '')}</p>
                 </div>
@@ -372,7 +282,7 @@ export default function ChatPage({ params }: TChatPageProps) {
         <FilePanel
           files={files}
           on_upload_click={handle_upload_click}
-          is_uploading={isUploading}
+          is_uploading={isUploading || upload_files_mutation.isPending}
         />
         </div>
       </div>

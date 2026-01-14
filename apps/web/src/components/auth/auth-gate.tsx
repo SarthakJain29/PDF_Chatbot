@@ -6,11 +6,8 @@ import { onAuthStateChanged, type User } from 'firebase/auth'
 import { get_firebase_auth } from '@/lib/firebase'
 import { Card } from '@/components/ui/card'
 import { FirebaseAuthUI } from '@/components/auth/firebase-ui'
-
-type TAuthContext = {
-  user: User
-  sign_out: () => void
-}
+import { RAG_USER_ID_STORAGE_KEY } from '@/constants/api'
+import type { TAuthContext, TAuthGateProps } from '@/types/auth'
 
 const AuthContext = React.createContext<TAuthContext | null>(null)
 
@@ -20,10 +17,6 @@ export const useAuth = () => {
     throw new Error('Auth context is missing')
   }
   return context
-}
-
-type TAuthGateProps = {
-  children: React.ReactNode
 }
 
 export const AuthGate = ({ children }: TAuthGateProps) => {
@@ -45,9 +38,9 @@ export const AuthGate = ({ children }: TAuthGateProps) => {
       setIsLoading(false)
 
       if (next_user?.uid) {
-        localStorage.setItem('rag_user_id', next_user.uid)
+        localStorage.setItem(RAG_USER_ID_STORAGE_KEY, next_user.uid)
       } else {
-        localStorage.removeItem('rag_user_id')
+        localStorage.removeItem(RAG_USER_ID_STORAGE_KEY)
       }
     })
 

@@ -1,12 +1,11 @@
 import type { Model } from "mongoose";
 import type { TDocument, TObjectId } from "./common";
 
-// Message types
 export const messageRoleValues = ["user", "assistant", "system", "tool"] as const;
-export type MessageRole = (typeof messageRoleValues)[number];
+export type TMessageRole = (typeof messageRoleValues)[number];
 
 export const messageStatusValues = ["streaming", "complete", "error"] as const;
-export type MessageStatus = (typeof messageStatusValues)[number];
+export type TMessageStatus = (typeof messageStatusValues)[number];
 
 export type TMessageSource<TFileId = TObjectId> = {
   file_id: TFileId;
@@ -25,9 +24,9 @@ export type TMessageContent<TFileId = TObjectId> =
 export type TMessage<TMessageChat = TObjectId, TMessageUser = string> = {
   chat: TMessageChat;
   user: TMessageUser;
-  role: MessageRole;
+  role: TMessageRole;
   content: TMessageContent;
-  status: MessageStatus;
+  status: TMessageStatus;
   model: string;
   retry_attempts: number;
   error?: string;

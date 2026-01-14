@@ -1,9 +1,9 @@
+import type { TUserContext } from '@/types/auth'
+
 declare global {
   namespace Express {
     export interface Request {
-      user: {
-        _id: string
-      }
+      user: TUserContext
     }
   }
 }

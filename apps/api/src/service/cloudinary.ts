@@ -4,12 +4,7 @@ import { Readable } from 'stream'
 import type { UploadedFile } from 'express-fileupload'
 
 import { env } from '@/constants/env'
-
-type TCloudinaryUploadResult = {
-  secure_url: string
-  public_id: string
-  bytes: number
-}
+import type { TCloudinaryUploadResult } from '@/types/cloudinary'
 
 const ensure_cloudinary_config = () => {
   if (

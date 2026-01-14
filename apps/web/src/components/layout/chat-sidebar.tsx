@@ -1,25 +1,10 @@
 'use client'
 
-import * as React from 'react'
 import { Bot, LogOut, MessageSquare, PanelLeftClose, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/components/auth/auth-gate'
-
-type TChatItem = {
-  _id: string
-  title: string
-  message_count?: number
-}
-
-type TChatSidebarProps = {
-  chats: TChatItem[]
-  active_chat_id?: string
-  on_new_chat: () => void
-  on_select_chat: (_chat_id: string) => void
-  is_open: boolean
-  on_toggle: () => void
-}
+import type { TChatSidebarProps } from '@/types/chat'
 
 export const ChatSidebar = ({
   chats,

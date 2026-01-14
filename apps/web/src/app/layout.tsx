@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Inter, Space_Grotesk, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthGate } from "@/components/auth/auth-gate";
+import { Providers } from "@/app/providers";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -38,7 +39,9 @@ export default function RootLayout({
       className={`${inter.variable} ${spaceGrotesk.variable} ${plusJakarta.variable}`}
     >
       <body className="font-sans antialiased">
-        <AuthGate>{children}</AuthGate>
+        <Providers>
+          <AuthGate>{children}</AuthGate>
+        </Providers>
       </body>
     </html>
   );

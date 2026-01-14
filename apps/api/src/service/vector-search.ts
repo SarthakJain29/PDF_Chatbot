@@ -1,25 +1,7 @@
-import type { Types } from 'mongoose'
-
 import { mg } from '@my-scope/db'
 
 import { VECTOR_CANDIDATES, VECTOR_LIMIT } from '@/constants/ai'
-
-export type TRagChunk = { //remove types from here
-  _id: Types.ObjectId
-  file_id: Types.ObjectId
-  file_name: string
-  page_number: number
-  chunk_index: number
-  text: string
-  score: number
-}
-
-type TFindChunksParams = {
-  user?: string
-  embedding: number[]
-  query?: string
-  limit?: number
-}
+import type { TFindChunksParams, TRagChunk } from '@/types/vector-search'
 
 export const find_similar_chunks = async (
   params: TFindChunksParams
@@ -73,6 +55,7 @@ export const find_similar_chunks = async (
     return results
   }
 
+  // Fall back to keyword search when vector results are empty.
   const keywords = query
     .toLowerCase()
     .split(/\s+/)

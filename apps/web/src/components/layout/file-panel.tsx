@@ -1,30 +1,12 @@
 'use client'
 
-import * as React from 'react'
 import { CheckCircle2, FileText, Loader2, Upload, XCircle } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-
-type TFileItem = {
-  _id: string
-  file_name: string
-  status: string
-}
-
-type TFilePanelProps = {
-  files: TFileItem[]
-  on_upload_click?: () => void
-  is_uploading?: boolean
-}
-
-const status_styles: Record<string, string> = {
-  uploaded: 'bg-amber-100 text-amber-700',
-  processing: 'bg-amber-100 text-amber-700',
-  ready: 'bg-emerald-100 text-emerald-700',
-  failed: 'bg-rose-100 text-rose-700'
-}
+import { FILE_STATUS_STYLES } from '@/constants/file'
+import type { TFilePanelProps } from '@/types/file'
 
 const status_icon = (status: string) => {
   if (status === 'ready') {
@@ -79,7 +61,7 @@ export const FilePanel = ({
                     </p>
                     <span
                       className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                        status_styles[file.status] || 'bg-slate-100 text-slate-600'
+                        FILE_STATUS_STYLES[file.status] || 'bg-slate-100 text-slate-600'
                       }`}
                     >
                       {file.status}

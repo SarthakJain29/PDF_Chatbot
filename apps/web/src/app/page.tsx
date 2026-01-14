@@ -9,95 +9,25 @@ import { Card } from '@/components/ui/card'
 import { ChatSidebar } from '@/components/layout/chat-sidebar'
 import { FilePanel } from '@/components/layout/file-panel'
 import { MAX_PDF_SIZE_MB } from '@my-scope/shared/constants'
-import {
-  create_chat,
-  get_chats,
-  get_files,
-  subscribe_file_updates,
-  upload_files
-} from '@/lib/api'
-
-type TChat = {
-  _id: string
-  title: string
-  message_count: number
-  updatedAt?: string
-}
-
-type TFileDoc = {
-  _id: string
-  file_name: string
-  status: string
-  createdAt?: string
-}
-
-type TUploadResult = {
-  file_id?: string
-  file_name: string
-  status: string
-  error?: string
-}
+import { useChats, useCreateChat, useFileStream, useFiles, useUploadFiles } from '@/lib/queries'
 
 export default function Home() {
   const router = useRouter()
   const file_input_ref = React.useRef<HTMLInputElement | null>(null)
   const [is_sidebar_open, setIsSidebarOpen] = React.useState(true)
-  const [chats, setChats] = React.useState<TChat[]>([])
-  const [files, setFiles] = React.useState<TFileDoc[]>([])
-  const [is_loading, setIsLoading] = React.useState(true)
   const [is_uploading, setIsUploading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const { data: chats = [], isLoading: isChatsLoading, error: chatsError } = useChats()
+  const { data: files = [], isLoading: isFilesLoading, error: filesError } = useFiles()
+  const create_chat_mutation = useCreateChat()
+  const upload_files_mutation = useUploadFiles()
 
-  const load_data = React.useCallback(async () => {
-    try {
-      setIsLoading(true)
-      const [chats_res, files_res] = await Promise.all([get_chats(), get_files()])
-      setChats(chats_res.data)
-      setFiles(files_res.data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  useFileStream()
 
-  React.useEffect(() => {
-    load_data()
-  }, [load_data])
-
-  const merge_files = React.useCallback(
-    (prev: TFileDoc[], incoming: TFileDoc[]) => {
-      const next = [...prev]
-
-      for (const file of incoming) {
-        const index = next.findIndex((item) => item._id === file._id)
-        if (index === -1) {
-          next.unshift(file)
-        } else {
-          next[index] = { ...next[index], ...file }
-        }
-      }
-
-      return next
-    },
-    []
-  )
-
-  const upsert_file = React.useCallback(
-    (file: TFileDoc) => {
-      setFiles((prev) => merge_files(prev, [file]))
-    },
-    [merge_files]
-  )
-
-  React.useEffect(() => {
-    const unsubscribe = subscribe_file_updates<TFileDoc>({
-      on_snapshot: (snapshot) => setFiles(snapshot),
-      on_update: (file) => upsert_file(file)
-    })
-
-    return () => unsubscribe()
-  }, [upsert_file])
+  const is_loading = isChatsLoading || isFilesLoading
+  const combined_error =
+    (chatsError instanceof Error && chatsError.message) ||
+    (filesError instanceof Error && filesError.message)
 
   const handle_upload_click = () => {
     file_input_ref.current?.click()
@@ -116,26 +46,14 @@ export default function Home() {
       setError(null)
       setIsUploading(true)
 
-      const upload_res = await upload_files(selected_files)
-      const uploaded_files = Array.isArray(upload_res.data)
-        ? (upload_res.data as TUploadResult[])
-        : []
-
-      if (uploaded_files.length) {
-        const mapped = uploaded_files.map((file, index) => ({
-          _id: file.file_id || `${file.file_name}-${Date.now()}-${index}`,
-          file_name: file.file_name,
-          status: file.status
-        }))
-        setFiles((prev) => merge_files(prev, mapped))
-      }
+      await upload_files_mutation.mutateAsync(selected_files)
 
       const chat_title =
         selected_files.length === 1
           ? `Chat: ${selected_files[0].name}`
           : `Chat (${selected_files.length} files)`
 
-      const chat_res = await create_chat(chat_title)
+      const chat_res = await create_chat_mutation.mutateAsync(chat_title)
       router.push(`/chat/${chat_res.data.chat_id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
@@ -200,9 +118,9 @@ export default function Home() {
             </p>
           </div>
 
-          {error ? (
+          {error || combined_error ? (
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
+              {error || combined_error}
             </div>
           ) : null}
 
@@ -226,9 +144,11 @@ export default function Home() {
                 <Button
                   onClick={handle_upload_click}
                   className="w-full justify-between bg-gradient-to-r from-indigo-600 via-sky-500 to-cyan-500 text-white shadow-sm hover:from-indigo-500 hover:via-sky-400 hover:to-cyan-400"
-                  disabled={is_uploading}
+                  disabled={is_uploading || upload_files_mutation.isPending}
                 >
-                  {is_uploading ? 'Uploading...' : 'Select PDFs'}
+                  {is_uploading || upload_files_mutation.isPending
+                    ? 'Uploading...'
+                    : 'Select PDFs'}
                   <Upload className="h-4 w-4" />
                 </Button>
               </div>
@@ -257,7 +177,7 @@ export default function Home() {
         <FilePanel
           files={files}
           on_upload_click={handle_upload_click}
-          is_uploading={is_uploading}
+          is_uploading={is_uploading || upload_files_mutation.isPending}
         />
       </div>
     </div>

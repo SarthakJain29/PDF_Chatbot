@@ -4,10 +4,10 @@ import * as React from 'react'
 import { EmailAuthProvider } from 'firebase/auth'
 
 import { get_firebase_auth } from '@/lib/firebase'
-
-const UI_CONTAINER_ID = 'firebaseui-auth-container'
-const FIREBASE_UI_CSS =
-  'https://www.gstatic.com/firebasejs/ui/6.1.0/firebase-ui-auth.css'
+import {
+  FIREBASE_UI_CONTAINER_ID,
+  FIREBASE_UI_CSS_URL
+} from '@/constants/firebase'
 
 const load_firebaseui_css = () => {
   if (typeof document === 'undefined') {
@@ -20,7 +20,7 @@ const load_firebaseui_css = () => {
 
   const link = document.createElement('link')
   link.rel = 'stylesheet'
-  link.href = FIREBASE_UI_CSS
+  link.href = FIREBASE_UI_CSS_URL
   link.setAttribute('data-firebaseui', 'true')
   document.head.appendChild(link)
 }
@@ -50,7 +50,7 @@ export const FirebaseAuthUI = () => {
         new firebaseui.auth.AuthUI(auth)
 
       ui.reset()
-      ui.start(`#${UI_CONTAINER_ID}`, {
+      ui.start(`#${FIREBASE_UI_CONTAINER_ID}`, {
         signInFlow: 'popup',
         signInOptions: [EmailAuthProvider.PROVIDER_ID],
         credentialHelper: firebaseui.auth.CredentialHelper.NONE,
@@ -61,7 +61,6 @@ export const FirebaseAuthUI = () => {
     }
 
     initFirebaseUI().catch((error) => {
-      console.error('Failed to initialize Firebase UI:', error)
       setError(error instanceof Error ? error.message : 'Failed to load sign-in')
     })
 
@@ -78,7 +77,7 @@ export const FirebaseAuthUI = () => {
       {error ? (
         <p className="text-xs text-rose-500">{error}</p>
       ) : null}
-      <div id={UI_CONTAINER_ID} />
+      <div id={FIREBASE_UI_CONTAINER_ID} />
     </div>
   )
 }

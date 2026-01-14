@@ -1,9 +1,6 @@
 import type { Response } from 'express'
 
-type TSseEvent<T> = {
-  event?: string
-  data: T
-}
+import type { TSseEvent } from '@/types/sse'
 
 export const init_sse = (res: Response): void => {
   res.status(200)

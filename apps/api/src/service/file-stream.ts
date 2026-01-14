@@ -1,12 +1,7 @@
 import type { Response } from 'express'
 
 import { send_sse_event } from '@/utils/sse'
-
-type TFileUpdatePayload = {
-  _id: string
-  file_name: string
-  status: string
-}
+import type { TFileUpdatePayload } from '@my-scope/shared/types'
 
 const subscribers = new Map<string, Set<Response>>()
 

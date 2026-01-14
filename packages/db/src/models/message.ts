@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import type { TMessage, MessageRole, MessageStatus } from "@my-scope/shared/types";
+import type { TMessage } from "@my-scope/shared/types";
 import { messageRoleValues, messageStatusValues } from "@my-scope/shared/types";
 
 const message_schema = new Schema<TMessage>(

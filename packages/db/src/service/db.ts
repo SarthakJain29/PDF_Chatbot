@@ -73,19 +73,9 @@ export const init_db = async (): Promise<void> => {
     ];
 
     // Create indexes for all models
-    console.log("Creating indexes...");
     for (const model of models) {
       await model.createIndexes();
-      console.log(`✓ Indexes created for ${model.modelName}`);
     }
-
-    // Get database info
-    const dbInfo = get_db_info();
-    console.log("Database Info:");
-    console.log(`  Status: ${dbInfo.status}`);
-    console.log(`  Name: ${dbInfo.name}`);
-    console.log(`  Host: ${dbInfo.host}`);
-    console.log(`  Port: ${dbInfo.port}`);
 
     console.log("Database initialization complete!");
   } catch (error) {
@@ -93,4 +83,3 @@ export const init_db = async (): Promise<void> => {
     throw error;
   }
 };
-

@@ -3,6 +3,7 @@ import type { UploadedFile } from 'express-fileupload'
 
 import { mg } from '@my-scope/db'
 import { MAX_PDF_SIZE_BYTES } from '@my-scope/shared/constants'
+import type { TUploadResult } from '@my-scope/shared/types'
 
 import { CHUNK_OVERLAP, CHUNK_SIZE, EMBEDDING_BATCH_SIZE } from '@/constants/ai'
 import { chunk_text } from '@/service/chunking'
@@ -16,13 +17,6 @@ import {
 } from '@/service/pdf'
 import { throw_error } from '@/utils/throw-error'
 import z from 'zod'
-
-type TUploadResult = {
-  file_id?: string
-  file_name: string
-  status: 'uploaded' | 'failed'
-  error?: string
-}
 
 const z_file = z.object({
   name: z.string().min(1),
@@ -40,7 +34,6 @@ const z_files = z.union([z_file, z.array(z_file)])
 const normalize_files = (input: unknown): UploadedFile[] => {
   const parsed = z_files.parse(input)
   // Cast to UploadedFile[] since req.files already contains UploadedFile objects
-  // We're just validating the shape, not creating new objects
   return (Array.isArray(parsed) ? parsed : [parsed]) as UploadedFile[]
 }
 
@@ -54,12 +47,6 @@ const ingest_file_in_background = async (payload: {
   const { file_id, user_id, file_name, file_url, size_bytes } = payload
 
   try {
-    console.info('[upload_files] Starting ingestion', {
-      user_id,
-      file_id,
-      file_name
-    })
-
     // Move file to processing while we extract + embed.
     await mg.file.updateOne(
       { _id: file_id },
@@ -91,11 +78,6 @@ const ingest_file_in_background = async (payload: {
     }> = []
 
     try {
-      console.info('[upload_files] Extracted PDF pages', {
-        file_name,
-        page_count: total_pages
-      })
-
       for (let page_number = 1; page_number <= total_pages; page_number++) {
         // Extract text for a single page, then chunk immediately.
         const page_text = await extract_pdf_page_text(pdf, page_number)
@@ -127,22 +109,6 @@ const ingest_file_in_background = async (payload: {
           const embeddings = await generate_embeddings(
             batch.map((chunk) => chunk.text)
           )
-
-          if (!embeddings.length) {
-            console.error('[upload_files] Empty embeddings batch', {
-              file_name,
-              batch_size: batch.length
-            })
-            continue
-          }
-
-          if (embeddings.length !== batch.length) {
-            console.warn('[upload_files] Embedding count mismatch', {
-              file_name,
-              batch_size: batch.length,
-              embedding_count: embeddings.length
-            })
-          }
 
           await mg.file_page.insertMany(
             batch
@@ -291,12 +257,6 @@ export const upload_files: RequestHandler = async (req, res) => {
 
       // Upload raw PDF to Cloudinary for temporary storage.
       const upload_result = await upload_pdf_to_cloudinary(file, req.user._id)
-      console.info('[upload_files] Uploaded to Cloudinary', {
-        file_name: file.name,
-        public_id: upload_result.public_id,
-        size_bytes: upload_result.bytes
-      })
-
       // Create metadata entry so UI can render status immediately.
       const file_doc = await mg.file.create({
         user: req.user._id,

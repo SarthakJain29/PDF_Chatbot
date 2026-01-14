@@ -1,14 +1,13 @@
 import type { Model } from "mongoose";
 import type { TDocument, TObjectId } from "./common";
 
-// File types
 export const fileStatusValues = ["uploaded", "processing", "ready", "failed"] as const;
-export type FileStatus = (typeof fileStatusValues)[number];
+export type TFileStatus = (typeof fileStatusValues)[number];
 
 export type TFile<TFileUser = string> = {
   user: TFileUser;
   file_name: string;
-  status: FileStatus;
+  status: TFileStatus;
   file_url?: string;
   storage_id?: string;
   size_bytes?: number;

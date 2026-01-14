@@ -10,9 +10,6 @@ const get_firebase_config = () => {
   const api_key = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || ''
 
   if (!api_key) {
-    if (typeof window !== 'undefined') {
-      console.error('[firebase] Missing NEXT_PUBLIC_FIREBASE_API_KEY')
-    }
     return null
   }
 

@@ -7,6 +7,7 @@ import { mg } from '@my-scope/db'
 import type { TMessageContent } from '@my-scope/shared/types'
 
 import { nowIST, OPENAI_CHAT_MODEL } from '@/constants/ai'
+import { SUMMARY_UPDATE_INTERVAL } from '@/constants/chat'
 import { generate_embedding } from '@/service/embeddings'
 import { find_similar_chunks } from '@/service/vector-search'
 import { z_object_id } from '@/utils/schema'
@@ -14,8 +15,6 @@ import { init_sse, send_sse_event } from '@/utils/sse'
 import { throw_error } from '@/utils/throw-error'
 
 const chat_model = openai(OPENAI_CHAT_MODEL)
-const SUMMARY_UPDATE_INTERVAL = 10
-
 const get_message_text = (message: { content: unknown; role: string }) => {
   if (typeof message.content === 'string') {
     return message.content
