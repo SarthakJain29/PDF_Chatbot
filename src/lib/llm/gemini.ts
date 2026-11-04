@@ -1,13 +1,14 @@
+import { fetchWithRetry } from './retry'
 import { readSseData } from '../sse'
 import type { LlmProvider } from './types'
 
-export function createGemini(apiKey: string, model = process.env.GEMINI_MODEL || 'gemini-2.0-flash'): LlmProvider {
+export function createGemini(apiKey: string, model = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest'): LlmProvider {
   return {
     name: 'gemini',
     model,
     async *stream(req) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`
-      const res = await fetch(url, {
+      const res = await fetchWithRetry(url, {
         method: 'POST',
         signal: req.signal,
         headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },

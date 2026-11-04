@@ -56,7 +56,7 @@ body {
   .prose-msg ul { @apply list-disc space-y-1.5 pl-5 marker:text-brand; }
   .prose-msg code { @apply rounded bg-raised px-1 py-0.5 text-[13px]; }
 
-  .viewer { @apply fixed inset-y-0 right-0 z-40 flex w-full max-w-[560px] flex-col border-l bg-surface shadow-2xl; border-color: rgb(var(--line)); animation: slide 0.25s ease-out; }
+  .viewer { @apply fixed inset-y-0 right-0 z-40 flex w-full max-w-[560px] flex-col border-l bg-surface shadow-2xl lg:static lg:w-[500px] lg:shrink-0 lg:shadow-none; border-color: rgb(var(--line)); animation: slide 0.25s ease-out; }
   .viewer > header, .viewer > footer { @apply flex items-center justify-between gap-3 border-b px-4 py-3; border-color: rgb(var(--line)); }
   .viewer > footer { @apply justify-center gap-6 border-b-0 border-t; border-color: rgb(var(--line)); }
   .viewer-body { @apply flex-1 overflow-auto bg-raised/50 p-3; }

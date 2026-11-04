@@ -1,4 +1,4 @@
-import { getProvider, mockProvider } from '@/lib/llm'
+import { getProviderChain } from '@/lib/llm'
 import type { LlmRequest } from '@/lib/llm'
 import { buildUserPrompt, SYSTEM_PROMPT, trimHistory } from '@/lib/prompt'
 import { encodeEvent, type StreamEvent } from '@/lib/sse'
@@ -47,29 +47,33 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       const send = (e: StreamEvent) => controller.enqueue(enc.encode(encodeEvent(e)))
-      let provider = getProvider()
       let started = false
       try {
-        send({ type: 'meta', provider: provider.name, model: provider.model, mock: provider.name === 'mock' })
-        try {
-          for await (const t of provider.stream(llmReq)) {
-            started = true
-            send({ type: 'delta', text: t })
-          }
-        } catch (err) {
-          // Fall back to mock only if nothing was streamed yet, so the user never sees a half answer replaced.
-          if (started || provider.name === 'mock') throw err
-          console.error('[chat] provider failed, falling back to mock:', (err as Error).message)
-          provider = mockProvider
+        const chain = getProviderChain()
+        let lastError: unknown
+        for (const [i, provider] of chain.entries()) {
           send({
             type: 'meta',
-            provider: 'mock',
-            model: mockProvider.model,
-            mock: true,
-            note: 'Live model unavailable, showing a demo answer.'
+            provider: provider.name,
+            model: provider.model,
+            mock: provider.name === 'mock',
+            note: i > 0 ? 'Live model unavailable, switched provider.' : undefined
           })
-          for await (const t of provider.stream(llmReq)) send({ type: 'delta', text: t })
+          try {
+            for await (const t of provider.stream(llmReq)) {
+              started = true
+              send({ type: 'delta', text: t })
+            }
+            lastError = undefined
+            break
+          } catch (err) {
+            lastError = err
+            // Once tokens were streamed we can't transparently swap providers.
+            if (started || req.signal.aborted) throw err
+            console.error(`[chat] ${provider.name} failed:`, (err as Error).message)
+          }
         }
+        if (lastError) throw lastError
         send({ type: 'done' })
       } catch (err) {
         send({ type: 'error', message: err instanceof Error ? err.message : 'Unknown error' })

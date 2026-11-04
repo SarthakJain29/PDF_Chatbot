@@ -1,12 +1,13 @@
+import { fetchWithRetry } from './retry'
 import { readSseData } from '../sse'
 import type { LlmProvider } from './types'
 
-export function createGroq(apiKey: string, model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'): LlmProvider {
+export function createGroq(apiKey: string, model = process.env.GROQ_MODEL || 'openai/gpt-oss-20b'): LlmProvider {
   return {
     name: 'groq',
     model,
     async *stream(req) {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const res = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         signal: req.signal,
         headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },

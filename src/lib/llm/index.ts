@@ -4,19 +4,25 @@ import { mockProvider } from './mock'
 import type { LlmProvider } from './types'
 
 export type { LlmProvider, LlmRequest } from './types'
+export { mockProvider }
 
 /**
- * Chooses a provider from env. LLM_PROVIDER = gemini | groq | mock | auto (default).
- * "auto" prefers Gemini, then Groq, then mock. A missing key always yields mock.
+ * Ordered fallback chain built from env. LLM_PROVIDER = gemini | groq | mock | auto (default).
+ * "auto" = Gemini -> Groq -> mock. A provider without a key is skipped; mock is always last,
+ * so the app never hard-fails for lack of credentials.
  */
-export function getProvider(env: Record<string, string | undefined> = process.env): LlmProvider {
+export function getProviderChain(env: Record<string, string | undefined> = process.env): LlmProvider[] {
   const want = (env.LLM_PROVIDER || 'auto').toLowerCase()
-  const gemini = env.GEMINI_API_KEY
-  const groq = env.GROQ_API_KEY
-  if (want === 'mock') return mockProvider
-  if ((want === 'gemini' || want === 'auto') && gemini) return createGemini(gemini, env.GEMINI_MODEL || undefined)
-  if ((want === 'groq' || want === 'auto') && groq) return createGroq(groq, env.GROQ_MODEL || undefined)
-  return mockProvider
+  const chain: LlmProvider[] = []
+  if (want !== 'mock') {
+    if ((want === 'gemini' || want === 'auto') && env.GEMINI_API_KEY)
+      chain.push(createGemini(env.GEMINI_API_KEY, env.GEMINI_MODEL || undefined))
+    if ((want === 'groq' || want === 'auto') && env.GROQ_API_KEY)
+      chain.push(createGroq(env.GROQ_API_KEY, env.GROQ_MODEL || undefined))
+  }
+  chain.push(mockProvider)
+  return chain
 }
 
-export { mockProvider }
+/** The preferred (first) provider: what the UI shows as "active". */
+export const getProvider = (env?: Record<string, string | undefined>): LlmProvider => getProviderChain(env)[0]!
