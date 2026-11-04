@@ -1,11 +1,8 @@
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const baseConfig = require("./packages/eslint-config/base.js");
+import { FlatCompat } from '@eslint/eslintrc'
 
-/** @type {import("eslint").Linter.Config[]} */
-export default [
-  baseConfig,
-  {
-    ignores: ["**/node_modules/**", "**/.dist/**", "**/.next/**", "**/.turbo/**"]
-  }
-];
+const compat = new FlatCompat({ baseDirectory: import.meta.dirname })
+const config = [
+  { ignores: ['next-env.d.ts', '.next/**', 'node_modules/**', 'public/**'] },
+  ...compat.extends('next/core-web-vitals', 'next/typescript')
+]
+export default config

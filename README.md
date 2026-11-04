@@ -1,102 +1,72 @@
-# Monorepo
+# Folio: chat with your PDFs, see the proof
 
-This is a Turborepo monorepo using Bun workspaces.
+> A private, local-first PDF chat app. Ask questions, get answers with numbered citations, and click any citation to open the exact page with the cited passage highlighted. Runs with **zero API keys** (demo mode) or on free Gemini / Groq keys.
 
-## Structure
+![Folio landing page](docs/screenshots/landing.png)
 
-- `apps/*` - Deployable applications
-  - `apps/web` - Next.js web application (port 3001)
-  - `apps/api` - Express API application (port 3000)
-- `packages/*` - Shared libraries and configurations
-  - `packages/typescript-config` - Shared TypeScript configurations
-  - `packages/eslint-config` - Shared ESLint configurations
-  - `packages/shared` - Shared constants and types
+| Cited answer | Source viewer with highlight |
+| --- | --- |
+| ![Chat](docs/screenshots/chat.png) | ![Viewer](docs/screenshots/viewer.png) |
 
-## Getting Started
+<p align="center"><img src="docs/screenshots/mobile.png" width="260" alt="Mobile layout"></p>
 
-Install dependencies:
+## Features
 
-```bash
-bun install
+- **Citations you can verify**: every claim carries `[n]`; clicking opens the PDF page with the passage highlighted.
+- **Private by design**: PDFs are parsed, chunked and indexed in the browser (pdf.js + IndexedDB). Only the top few passages for a question are sent to the model.
+- **Multi-document library**: toggle which PDFs a question searches.
+- **Streaming answers** with a stop button, persisted chat history, Markdown export.
+- **Hybrid-friendly retrieval**: BM25 with stemming, near-duplicate removal, follow-up query expansion and an overview mode for "summarize" questions.
+- **Provider abstraction**: Gemini → Groq → mock fallback chain. No key = demo mode; a failing provider falls back automatically.
+- Dark/light theme, drag-and-drop upload, loading/empty/error states, responsive down to phones.
+
+## Tech stack
+
+Next.js 15 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS · pdf.js · idb-keyval · Vitest · Gemini / Groq REST APIs (no SDKs).
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    UI[React UI] -->|File| P[pdf.js text extraction]
+    P --> C[Sentence-aware chunker]
+    C --> DB[(IndexedDB: PDF blob, chunks, chats)]
+    UI -->|question| R[BM25 retrieval]
+    DB --> R
+    R -->|top passages| UI
+    UI -->|viewer| V[pdf.js canvas + highlight]
+  end
+  UI -->|question + passages + history| API[/api/chat route/]
+  subgraph Server
+    API --> CH{Provider chain}
+    CH --> G[Gemini]
+    CH --> Q[Groq]
+    CH --> M[Mock extractive]
+  end
+  API -.SSE tokens.-> UI
 ```
 
-Run development (both apps):
+## Getting started
 
 ```bash
-bun run dev
+npm install
+cp .env.example .env.local   # optional: add GEMINI_API_KEY and/or GROQ_API_KEY
+npm run dev                  # http://localhost:3000
 ```
 
-This will start:
-- `apps/web` on http://localhost:3001
-- `apps/api` on http://localhost:3000
+No keys? It starts in demo mode. Click **Try the sample document** to see everything working.
 
-Run a specific app:
+| Script | Purpose |
+| --- | --- |
+| `npm run dev` / `build` / `start` | Next.js |
+| `npm run lint` · `typecheck` · `test` | Quality gates (also run in CI) |
 
-```bash
-cd apps/web && bun run dev
-# or
-cd apps/api && bun run dev
-```
+See [developer.md](developer.md) for the audit, env vars, deployment and decisions, and [CHANGES.md](CHANGES.md) for a feature-by-feature walkthrough.
 
-Build all packages and apps:
+## Roadmap
 
-```bash
-bun run build
-```
-
-Build only packages:
-
-```bash
-bun run build:pkg
-```
-
-## Scripts
-
-All apps and packages expose the same script contract:
-- `build` - Build the package/app
-- `dev` - Run in development mode
-- `start` - Start the production server
-- `lint` - Lint the code
-- `typecheck` - Type check the code
-- `test` - Run tests
-- `clean` - Clean build artifacts
-
-Run scripts across the monorepo:
-
-```bash
-bun run <script>  # Runs via turbo
-```
-
-## Shared Configs
-
-- `@my-scope/typescript-config` - TypeScript configurations
-  - `base.json` - Base TypeScript config
-  - `next.json` - Next.js TypeScript config
-  - `react-library.json` - React library TypeScript config
-- `@my-scope/eslint-config` - ESLint configurations
-  - `base.js` - Base ESLint config
-  - `next.js` - Next.js ESLint config
-
-## Apps
-
-### apps/web
-Next.js web application with App Router. Default port: 3001
-
-### apps/api
-Express API application with health-style routes. Default port: 3000
-- Health check endpoint: http://localhost:3000/health
-- Ready check endpoint: http://localhost:3000/ready
-
-## Docker (apps/api)
-
-Build the API image from the repo root:
-
-```bash
-docker build -f apps/api/Dockerfile -t business-os-api .
-```
-
-Run the container:
-
-```bash
-docker run -p 3000:3000 business-os-api
-```
+- OCR for scanned PDFs (Tesseract.js)
+- Optional embedding-based hybrid retrieval (Gemini embeddings)
+- Shareable read-only chat exports
+- Multi-column / table-aware extraction
