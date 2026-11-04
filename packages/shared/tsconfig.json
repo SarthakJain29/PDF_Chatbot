@@ -1,9 +1,0 @@
-{
-  "extends": "../typescript-config/base.json",
-  "compilerOptions": {
-    "baseUrl": ".",
-    "incremental": false,
-    "noEmit": false
-  },
-  "include": ["src/**/*.ts", "index.ts"]
-}
