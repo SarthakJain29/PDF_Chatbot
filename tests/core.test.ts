@@ -102,3 +102,25 @@ describe('sse', () => {
     expect(out).toEqual([{ type: 'delta', text: 'hi' }, { type: 'done' }])
   })
 })
+
+import { expandQuery, isOverviewQuery, retrieve, sampleOverview } from '../src/lib/retrieve'
+
+describe('retrieve', () => {
+  const chunks = chunkPages({ id: 'd', name: 'a.pdf' }, Array.from({ length: 12 }, (_, i) => `Page ${i} discusses subject${i} in depth.`))
+  it('detects overview questions', () => {
+    expect(isOverviewQuery('Can you summarize this?')).toBe(true)
+    expect(isOverviewQuery('who wrote it')).toBe(false)
+  })
+  it('samples evenly', () => {
+    const s = sampleOverview(chunks, 4)
+    expect(s.map((c) => c.page)).toEqual([1, 4, 7, 10])
+  })
+  it('expands short follow-ups', () => {
+    expect(expandQuery('why?', 'what is subject3')).toBe('what is subject3 why?')
+    expect(expandQuery('explain the subject3 details', 'old')).toBe('explain the subject3 details')
+  })
+  it('numbers sources from 1', () => {
+    const s = retrieve(chunks, new BM25Index(chunks), 'tell me about subject5')
+    expect(s[0]).toMatchObject({ n: 1, page: 6 })
+  })
+})

@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme='dark'] {
+  --bg: 11 10 20;
+  --surface: 20 18 33;
+  --raised: 30 27 48;
+  --line: 255 255 255 / 0.08;
+  --ink: 244 242 255;
+  --muted: 160 156 190;
+  --brand: 139 92 246;
+  --hot: 255 106 149;
+}
+[data-theme='light'] {
+  --bg: 250 249 255;
+  --surface: 255 255 255;
+  --raised: 243 240 255;
+  --line: 20 10 60 / 0.1;
+  --ink: 24 20 45;
+  --muted: 108 102 140;
+  --brand: 109 62 230;
+  --hot: 232 62 120;
+}
+
+html, body { height: 100%; }
+body {
+  @apply bg-bg font-sans text-ink antialiased;
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, rgb(var(--brand) / 0.22), transparent 60%),
+    radial-gradient(40rem 26rem at -10% 110%, rgb(var(--hot) / 0.14), transparent 60%);
+  background-attachment: fixed;
+}
+::selection { background: rgb(var(--brand) / 0.35); }
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition
+      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn text-white shadow-lg shadow-brand/30 hover:brightness-110 active:scale-[0.98];
+    background-image: linear-gradient(120deg, rgb(var(--brand)), rgb(var(--hot)));
+  }
+  .btn-ghost { @apply btn border bg-surface/60 hover:bg-raised; border-color: rgb(var(--line)); }
+  .icon-btn { @apply inline-flex h-9 w-9 items-center justify-center rounded-full text-muted transition hover:bg-raised hover:text-ink disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand; }
+  .card { @apply rounded-2xl border bg-surface/80 backdrop-blur; border-color: rgb(var(--line)); }
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs text-muted transition hover:bg-raised hover:text-ink; border-color: rgb(var(--line)); }
+
+  .cite {
+    @apply mx-0.5 inline-flex h-[18px] min-w-[18px] -translate-y-px items-center justify-center rounded-md px-1 text-[11px] font-semibold text-white transition hover:scale-110;
+    background-image: linear-gradient(120deg, rgb(var(--brand)), rgb(var(--hot)));
+  }
+  .prose-msg { @apply space-y-3 text-[15px] leading-relaxed; }
+  .prose-msg ul { @apply list-disc space-y-1.5 pl-5 marker:text-brand; }
+  .prose-msg code { @apply rounded bg-raised px-1 py-0.5 text-[13px]; }
+
+  .viewer { @apply fixed inset-y-0 right-0 z-40 flex w-full max-w-[560px] flex-col border-l bg-surface shadow-2xl; border-color: rgb(var(--line)); animation: slide 0.25s ease-out; }
+  .viewer > header, .viewer > footer { @apply flex items-center justify-between gap-3 border-b px-4 py-3; border-color: rgb(var(--line)); }
+  .viewer > footer { @apply justify-center gap-6 border-b-0 border-t; border-color: rgb(var(--line)); }
+  .viewer-body { @apply flex-1 overflow-auto bg-raised/50 p-3; }
+  .page-wrap { @apply relative mx-auto bg-white shadow-xl; }
+  .hl { @apply pointer-events-none absolute rounded-sm; background: rgb(255 214 10 / 0.38); mix-blend-mode: multiply; }
+  .skeleton { @apply animate-pulse rounded-xl bg-raised; }
+}
+@keyframes slide { from { transform: translateX(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes rise { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
+.rise { animation: rise 0.35s ease-out both; }
+.caret::after { content: '▍'; margin-left: 2px; color: rgb(var(--brand)); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0 } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
